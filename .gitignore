@@ -1,0 +1,23 @@
+# .gitignore
+
+# whitelist mode
+
+/*
+!/.gitignore
+!/.gitmodules
+
+#-allow list
+#--cxx
+!/include/
+!/include/*
+!/lib/
+!/lib/*
+!/src/
+!/src/*
+!/test/
+!/test/*
+
+!/.clang-format
+!/.clang-tidy
+!/CMakeLists.txt
+!/LICENSE
