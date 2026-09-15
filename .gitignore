@@ -5,19 +5,20 @@
 /*
 !/.gitignore
 !/.gitmodules
+!/.editorconfig
 
 #-allow list
 #--cxx
-!/include/
-!/include/*
-!/lib/
-!/lib/*
-!/src/
-!/src/*
-!/test/
-!/test/*
+!/core/
+!/core/*
+!/extension/
+!/extension/*
 
 !/.clang-format
 !/.clang-tidy
 !/CMakeLists.txt
 !/LICENSE
+
+#--github
+!/.github/
+!/.github/*

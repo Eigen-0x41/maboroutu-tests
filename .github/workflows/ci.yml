@@ -1,0 +1,160 @@
+name: maboroutu GTest verification
+
+# =============================================================================
+# 実機検証済みの前提:
+#   - CMake 3.28 は Clang18/GCC14 いずれでも、実際にコンパイルされる
+#     (INTERFACEでない) ターゲットへの target_compile_features(cxx_std_26)
+#     を「不明な機能」としてConfigureエラーにする(実機確認済み)。
+#     C++26のコンパイラ機能テーブルが十分に整備された、より新しい CMake
+#     (本ワークフローでは 3.31 系を明示インストール) を使用する。
+#   - GCC 13 は "deducing this" (P0847, C++23) に未対応であり、本ライブラリは
+#     全面的にこの機能に依存しているため、GCC13ではビルド不可（実機確認済み）。
+#     GCC 14 以降が実質的な下限となる
+#     （library_spec.md 4.1.1節の「GCC13+」という記載とは異なる。要映幻確認）。
+#   - GCC 14 は C++20 modules の依存関係スキャン自体はCMake経由で通るが、
+#     ローカル検証では "sorry, unimplemented" 系ではない
+#     "failed to read compiled module: Bad file data" という、GCC自体の
+#     モジュール実装がまだ不安定であることを示すエラーに遭遇した
+#     （再現条件は未特定。並列度を落としても再現したため単純な競合とは
+#     考えにくい）。本ワークフローではGCCジョブを continue-on-error として
+#     扱い、失敗してもワークフロー全体は失敗させないが、結果は記録する。
+#   - Clang 18 + libstdc++ の組み合わせでは std::expected が見つからない
+#     （<expected> がinclude済みでも同様）。Clang系ジョブでは
+#     -stdlib=libc++ を明示し、libc++-dev を別途インストールする。
+#   - MABOROUTU_SOURCE_DIR で指定したローカルチェックアウトを使う場合、
+#     以下9件の実装バグ（GTestプロジェクト側で発見・提示した最小修正）が
+#     適用されている前提。詳細は本リポジトリ付属のバグ報告
+#     (README.md もしくは会話ログ本文) を参照。
+#     1. core/src/extension_store.cppm: local_typeid::cmp<T>() の return文欠落
+#     2. core/src/extension_store.cppm: value_type::size() の非static呼び出し
+#     3. core/src/extension_store.cppm: transform_each が visit_each のまま
+#        (かつ制約不足) で多重定義・呼び出し曖昧
+#     4. core/src/extension_store.cppm: alt_t::element_type のtypename欠落
+#     5. core/src/sequential_source.cppm: sequential_source_handle /
+#        writable_sequential_source_handle の export欠落
+#     6. CMakeLists.txt (root): WORKSPACE_NAME が ${CMAKE_PROJECT_NAME} 由来
+#        になっており、他プロジェクトから add_subdirectory/FetchContent
+#        されると別名になってしまう
+#     7. core/src/binary_convert.cppm: std::unexpected(bytes.error()) が
+#        lvalueからのコピーになってしまっている(move-only型のため必要な
+#        std::move漏れ、6箇所)
+#     8. core/src/sequential_view.cppm: read() の `return *result;` も同様の
+#        move漏れ
+#     9. extension/src/stream_data_source.cppm: 同様のmove漏れ(4箇所)
+#   自分のフォーク・ブランチでこれらを未修正のまま本ワークフローを走らせる
+#   場合、core/extension のビルドがこの時点で失敗する。
+# =============================================================================
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # NOTE: MABOROUTU_GIT_REPOSITORY / MABOROUTU_GIT_TAG は vcpkg.json の
+  # homepageフィールドから推測した既定値であり未検証。実際のURL・ブランチ/
+  # タグに置き換えること。
+  MABOROUTU_GIT_REPOSITORY: "https://github.com/Eigen-0x41/maboroutu.git"
+  MABOROUTU_GIT_TAG: "develop"
+
+jobs:
+  clang:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04]
+        clang: [16, 17, 18, 19]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang ${{ matrix.clang }} + libc++ + Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang-${{ matrix.clang }} clang-tools-${{ matrix.clang }} \
+            libc++-${{ matrix.clang }}-dev libc++abi-${{ matrix.clang }}-dev \
+            ninja-build
+
+      - name: Install a CMake new enough to know cxx_std_26 for this compiler
+        run: pipx install "cmake>=3.31" --force
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_C_COMPILER=clang-${{ matrix.clang }}
+          -DCMAKE_CXX_COMPILER=clang++-${{ matrix.clang }}
+          -DCMAKE_CXX_FLAGS=-stdlib=libc++
+          -DCMAKE_EXE_LINKER_FLAGS=-stdlib=libc++
+          -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=clang-scan-deps-${{ matrix.clang }}
+          -DMABOROUTU_GIT_REPOSITORY="${{ env.MABOROUTU_GIT_REPOSITORY }}"
+          -DMABOROUTU_GIT_TAG="${{ env.MABOROUTU_GIT_TAG }}"
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure
+
+  gcc:
+    # library_spec.md 4.1.1節記載の「GCC13+」検証済みバージョン(4.1.1節)と、
+    # 実機検証で得られた実際の下限(deducing this対応のGCC14+)の双方を記録に
+    # 残す目的で両方を試すが、8章記載の未検証事項および本ワークフロー冒頭の
+    # 注記の通りGCCのC++20 modules実装は不安定なため、失敗してもジョブ全体は
+    # 失敗にしない。
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04]
+        gcc: [13, 14, 15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC ${{ matrix.gcc }} + Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++-${{ matrix.gcc }} ninja-build
+
+      - name: Install a CMake new enough to know cxx_std_26 for this compiler
+        run: pipx install "cmake>=3.31" --force
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_C_COMPILER=gcc-${{ matrix.gcc }}
+          -DCMAKE_CXX_COMPILER=g++-${{ matrix.gcc }}
+          -DMABOROUTU_GIT_REPOSITORY="${{ env.MABOROUTU_GIT_REPOSITORY }}"
+          -DMABOROUTU_GIT_TAG="${{ env.MABOROUTU_GIT_TAG }}"
+
+      - name: Build
+        run: cmake --build build -j1 # GCC modules: 並列ビルドでの不安定さを避ける
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure
+
+  msvc:
+    # library_spec.md 4.1.1節: MSVC 19.51.36252 (Build Tools 14.51, VS2026)
+    # で実機確認済みとされているバージョン。本セッションではWindowsランナー
+    # での実機検証は行っていない（Linuxコンテナ環境のため）。
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G "Visual Studio 17 2022"
+          -DMABOROUTU_GIT_REPOSITORY="${{ env.MABOROUTU_GIT_REPOSITORY }}"
+          -DMABOROUTU_GIT_TAG="${{ env.MABOROUTU_GIT_TAG }}"
+
+      - name: Build
+        run: cmake --build build --config Debug
+
+      - name: Test
+        working-directory: build
+        run: ctest -C Debug --output-on-failure
