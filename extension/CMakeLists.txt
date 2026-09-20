@@ -21,6 +21,8 @@ maboroutu_add_extension_test(test_slot_map)
 maboroutu_add_extension_test(test_keyed_slot_map)
 maboroutu_add_extension_test(test_stream_data_source)
 maboroutu_add_extension_test(test_console)
+maboroutu_add_extension_test(test_memory_data_buffer)
+maboroutu_add_extension_test(test_binary_layout_handle)
 
 # test_source_location_format.cpp が検証する std::formatter<std::source_location>
 # の明示的特殊化は、Clang 18 + libc++ で実機検証した限り、モジュール越しに
