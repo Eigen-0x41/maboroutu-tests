@@ -112,12 +112,11 @@ class SegmentedSpanTest : public ::testing::Test {
    std::array<std::byte, 4> _u1{
        std::byte{0x20}, std::byte{0x21},
        std::byte{0x22}, std::byte{0x23}};
-   std::array<std::span<std::byte, 4>, 2> _spans;
+   std::array<std::span<std::byte, 4>, 2> _spans{
+       std::span<std::byte, 4>{_u0},
+       std::span<std::byte, 4>{_u1}} ;
 
-   void SetUp() override {
-      _spans[0] = std::span<std::byte, 4>{_u0};
-      _spans[1] = std::span<std::byte, 4>{_u1};
-   }
+   void SetUp() override {}
 
    [[nodiscard]] auto make_seg()
        -> maboroutu::segmented_span<std::byte, 4> {
