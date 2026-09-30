@@ -196,4 +196,220 @@ TEST(MaboroutuBinaryLayoutHandleDeathTest,
 }
 #endif // GTEST_HAS_DEATH_TEST && !NDEBUG
 
+
+// =====================================================================
+// 以下は追加テスト
+// =====================================================================
+
+// --- write() が常に失敗する data_buffer モック ---------------------------
+// finalize() の「write失敗時に残パッチを abandon する」パスを検証するために
+// 使う（data_buffer.cppm の nullスタブは write が常に成功するため別途用意）。
+class write_failing_buffer {
+   std::vector<std::byte> _data;
+
+ public:
+   template <class T> using result_type = maboroutu::data_source_result<T>;
+   using view_type = std::span<std::byte>;
+
+   [[nodiscard]] auto size() const -> result_type<std::size_t> {
+      return _data.size();
+   }
+   [[nodiscard]] auto read(maboroutu::region r)
+       -> result_type<maboroutu::byte_array> {
+      if (r.offset + r.size > _data.size()) {
+         return std::unexpected(
+             maboroutu::error<ds_code_type>(ds_code_type::out_of_range));
+      }
+      maboroutu::byte_array out{
+          .value =
+              std::make_unique<maboroutu::byte_array::value_type>(r.size),
+          .size = r.size,
+      };
+      std::memcpy(out.value.get(), _data.data() + r.offset, r.size);
+      return out;
+   }
+   // write() は常に失敗する（テスト用）
+   auto write(maboroutu::region, std::span<std::byte const>)
+       -> result_type<void> {
+      return std::unexpected(
+          maboroutu::error<ds_code_type>(ds_code_type::out_of_range));
+   }
+   auto append(std::span<std::byte const> data)
+       -> maboroutu::data_buffer_result<maboroutu::region> {
+      auto const offset = _data.size();
+      _data.insert(_data.end(), data.begin(), data.end());
+      return maboroutu::region{.offset = offset, .size = data.size()};
+   }
+   auto grow(std::size_t n)
+       -> maboroutu::data_buffer_result<maboroutu::region> {
+      auto const offset = _data.size();
+      _data.resize(_data.size() + n);
+      return maboroutu::region{.offset = offset, .size = n};
+   }
+   auto view(maboroutu::region)
+       -> maboroutu::data_buffer_result<view_type> {
+      return std::unexpected(
+          maboroutu::error<buffer_code_type>(
+              buffer_code_type::out_of_range));
+   }
+};
+static_assert(maboroutu::data_buffer<write_failing_buffer>);
+
+// =====================================================================
+// 正常系追加: 同一ハンドルに複数の defer_patch → 全て同じ値で解決
+// =====================================================================
+// 仕様: 1つのハンドルに対して複数箇所から defer_patch を呼べる。
+// 期待動作: finalize() でそれぞれのプレースホルダが同一の確定値で埋まる。
+TEST(MaboroutuBinaryLayoutHandle,
+     SameHandleWithMultiplePatchesResolvesAllToSameValue) {
+   memory_buffer buf;
+   resolver_type resolver;
+
+   // 1. ハンドルを発行し、同一ハンドルで2箇所パッチを予約する。
+   auto handle = resolver.checkout();
+   ASSERT_TRUE(resolver.defer_patch(buf, handle).has_value()); // 位置 0..3
+   ASSERT_TRUE(resolver.defer_patch(buf, handle).has_value()); // 位置 4..7
+
+   // 2. 対象を配置する（プレースホルダの後ろに実データ）。
+   std::array<std::byte, 3> payload{std::byte{0xAA}, std::byte{0xBB},
+                                    std::byte{0xCC}};
+   auto placed =
+       buf.append(std::span<std::byte const>(payload.data(), payload.size()));
+   ASSERT_TRUE(placed.has_value());
+
+   // 3. ハンドルを確定させ、finalize する。
+   resolver.resolve_handle(handle, placed->offset);
+   ASSERT_TRUE(resolver.finalize().has_value());
+
+   // 4. 両パッチが同じ値で解決されているはず。
+   auto r1 = maboroutu::read_uint<4, maboroutu::endian::big>(buf, 0);
+   auto r2 = maboroutu::read_uint<4, maboroutu::endian::big>(buf, 4);
+   ASSERT_TRUE(r1.has_value());
+   ASSERT_TRUE(r2.has_value());
+   EXPECT_EQ(*r1, static_cast<std::uint32_t>(placed->offset));
+   EXPECT_EQ(*r2, static_cast<std::uint32_t>(placed->offset));
+}
+
+// =====================================================================
+// 正常系追加: resolve_handle() を defer_patch() より先に呼ぶ（逆順解決）
+// =====================================================================
+// 対象オブジェクトが先に配置され（後方参照）、その後でパッチ箇所が
+// 決まるケース。前方参照（先にパッチ予約→後で対象配置）の逆。
+TEST(MaboroutuBinaryLayoutHandle,
+     ResolveHandleBeforeDeferPatchWorksCorrectly) {
+   memory_buffer buf;
+   resolver_type resolver;
+
+   // 1. 対象を先に配置する。
+   std::array<std::byte, 5> payload{};
+   auto placed =
+       buf.append(std::span<std::byte const>(payload.data(), payload.size()));
+   ASSERT_TRUE(placed.has_value());
+
+   // 2. ハンドルを発行し、配置済みの確定値を先に登録する。
+   auto handle = resolver.checkout();
+   resolver.resolve_handle(handle, placed->offset); // defer_patch より前
+
+   // 3. 後からパッチを予約する（この時点でバッファは 5+4=9 バイト）。
+   ASSERT_TRUE(resolver.defer_patch(buf, handle).has_value());
+   auto const patch_pos = placed->offset + placed->size; // 5
+
+   // 4. finalize する。
+   ASSERT_TRUE(resolver.finalize().has_value());
+
+   // 5. パッチに placed->offset (=0) が書き込まれているはず。
+   auto r = maboroutu::read_uint<4, maboroutu::endian::big>(buf, patch_pos);
+   ASSERT_TRUE(r.has_value());
+   EXPECT_EQ(*r, static_cast<std::uint32_t>(placed->offset));
+}
+
+// =====================================================================
+// 正常系追加: 保留パッチが0件の状態で finalize() は成功する
+// =====================================================================
+TEST(MaboroutuBinaryLayoutHandle,
+     FinalizeWithNoPendingPatchesSucceeds) {
+   resolver_type resolver;
+   auto result = resolver.finalize();
+   EXPECT_TRUE(result.has_value());
+}
+
+// =====================================================================
+// 正常系追加: 複数ハンドル・各1パッチが全て解決されて正しく読める
+// =====================================================================
+TEST(MaboroutuBinaryLayoutHandle,
+     MultipleHandlesEachWithOnePatchFinalizeCorrectly) {
+   memory_buffer buf;
+   resolver_type resolver;
+
+   auto h1 = resolver.checkout();
+   auto h2 = resolver.checkout();
+
+   // 両方のパッチを先に予約する（前方参照）。
+   ASSERT_TRUE(resolver.defer_patch(buf, h1).has_value()); // 位置 0..3
+   ASSERT_TRUE(resolver.defer_patch(buf, h2).has_value()); // 位置 4..7
+
+   // 対象を順に配置する。
+   std::array<std::byte, 2> p1{}, p2{};
+   auto loc1 =
+       buf.append(std::span<std::byte const>(p1.data(), p1.size()));
+   auto loc2 =
+       buf.append(std::span<std::byte const>(p2.data(), p2.size()));
+   ASSERT_TRUE(loc1.has_value());
+   ASSERT_TRUE(loc2.has_value());
+
+   resolver.resolve_handle(h1, loc1->offset);
+   resolver.resolve_handle(h2, loc2->offset);
+   ASSERT_TRUE(resolver.finalize().has_value());
+
+   // それぞれ異なるオフセット値が書き込まれているはず。
+   auto r1 = maboroutu::read_uint<4, maboroutu::endian::big>(buf, 0);
+   auto r2 = maboroutu::read_uint<4, maboroutu::endian::big>(buf, 4);
+   ASSERT_TRUE(r1.has_value());
+   ASSERT_TRUE(r2.has_value());
+   EXPECT_EQ(*r1, static_cast<std::uint32_t>(loc1->offset));
+   EXPECT_EQ(*r2, static_cast<std::uint32_t>(loc2->offset));
+   EXPECT_NE(*r1, *r2); // 2つのパッチが別の値になっていること
+}
+
+// =====================================================================
+// エラー系追加: finalize() の write 失敗時、残パッチを abandon する
+// =====================================================================
+// !!! 最重要（回帰リスク）: この動作の修正経緯 !!!
+// deferred_resolver::finalize() は当初、パッチの resolve() が書き込み
+// エラーで失敗した際、以降の保留パッチを未解決のまま放置していた。
+// この状態でリゾルバが破棄されると、未解決の position_patch の
+// デストラクタが assert で発火しプロセスがクラッシュした（修正済み）。
+// 修正後: finalize() は write 失敗を検出したら即座に
+// _abandon_from(失敗インデックス+1) を呼び、残パッチを abandon する。
+// このテスト関数自体がクラッシュせず完了することが「回帰していない」
+// ことの確認になる。
+TEST(MaboroutuBinaryLayoutHandle,
+     FinalizeWriteErrorAbandonsRemainingPatchesAndResolverSurvivesDestruction) {
+   // write() が常に失敗するバッファを使う。
+   write_failing_buffer buf;
+   maboroutu::deferred_resolver<handle_id, 4, maboroutu::endian::big,
+                                write_failing_buffer>
+       resolver;
+
+   auto h1 = resolver.checkout();
+   auto h2 = resolver.checkout();
+
+   // 2つのパッチを予約する（grow() は成功するので reserve_patch は通る）。
+   ASSERT_TRUE(resolver.defer_patch(buf, h1).has_value());
+   ASSERT_TRUE(resolver.defer_patch(buf, h2).has_value());
+
+   resolver.resolve_handle(h1, 0);
+   resolver.resolve_handle(h2, 4);
+
+   // finalize() は最初のパッチの write() 失敗でエラーを返す。
+   auto result = resolver.finalize();
+   ASSERT_FALSE(result.has_value());
+   EXPECT_EQ(result.error().code(), ds_code_type::out_of_range);
+
+   // ここで resolver / buf がスコープを抜けて破棄される。
+   // 修正前は h2 のパッチが未解決のまま残り、position_patch の
+   // デストラクタ assert でクラッシュしていた。
+   // このテスト自体がクラッシュせず完了することが再発防止の確認となる。
+}
+
 } // namespace

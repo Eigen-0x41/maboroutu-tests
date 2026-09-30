@@ -17,7 +17,7 @@
 // **x86_64等のlittle-endianホスト上では、生バイト列を直接検証する
 // 本ファイルの WriteUint*ProducesExpectedRawBytes 系のテストも
 // この特定の回帰を検出できない**ことを確認した（実際に該当バグを
-// 一時的に再現させ、全14件のテストが通過してしまうことを確認済み）。
+// 一時的に再現させ、全テストが通過してしまうことを確認済み）。
 // 理由: little-endianホストでは `endian::native == endian::little`
 // が常に真であるため、誤った式 `Endian == endian::native` は、
 // 正しい式 `Endian == endian::little` と**あらゆるEndian値に対して
@@ -32,7 +32,7 @@
 // 検証としては引き続き有効であるため残しているが、上記の限界を
 // 理解した上で読むこと。
 //
-// offset_patch のデストラクタ未解決検出は assert() ベースであるため、
+// position_patch のデストラクタ未解決検出は assert() ベースであるため、
 // ASSERT_DEATH系のテストはNDEBUGが定義されていない(assertが有効な)
 // ビルド構成が前提となる。
 #include <array>
@@ -68,6 +68,7 @@ class memory_buffer {
 
  public:
    template <class T> using result_type = maboroutu::data_source_result<T>;
+   using view_type = std::span<std::byte>;
 
    [[nodiscard]] auto bytes() const -> std::vector<std::byte> const & {
       return _data;
@@ -75,7 +76,8 @@ class memory_buffer {
    [[nodiscard]] auto size() const -> result_type<std::size_t> {
       return _data.size();
    }
-   [[nodiscard]] auto read(maboroutu::region r) -> result_type<maboroutu::byte_array> {
+   [[nodiscard]] auto read(maboroutu::region r)
+       -> result_type<maboroutu::byte_array> {
       if (r.offset + r.size > _data.size()) {
          return std::unexpected(
              maboroutu::error<ds_code_type>(ds_code_type::out_of_range));
@@ -107,7 +109,7 @@ class memory_buffer {
       return maboroutu::region{.offset = offset, .size = n};
    }
    auto view(maboroutu::region r)
-       -> maboroutu::data_buffer_result<std::span<std::byte>> {
+       -> maboroutu::data_buffer_result<view_type> {
       if (r.offset + r.size > _data.size()) {
          return std::unexpected(
              maboroutu::error<buffer_code_type>(buffer_code_type::out_of_range));
@@ -164,13 +166,19 @@ TEST_P(BinaryLayoutUintRoundTrip, Width1) {
    ASSERT_TRUE(grown.has_value());
    auto const endian = GetParam();
    constexpr std::uint8_t original = 0xAB;
-   auto write_result = (endian == maboroutu::endian::little)
-       ? maboroutu::write_uint<1, maboroutu::endian::little>(buf, grown->offset, original)
-       : maboroutu::write_uint<1, maboroutu::endian::big>(buf, grown->offset, original);
+   auto write_result =
+       (endian == maboroutu::endian::little)
+           ? maboroutu::write_uint<1, maboroutu::endian::little>(
+                 buf, grown->offset, original)
+           : maboroutu::write_uint<1, maboroutu::endian::big>(
+                 buf, grown->offset, original);
    ASSERT_TRUE(write_result.has_value());
-   auto read_result = (endian == maboroutu::endian::little)
-       ? maboroutu::read_uint<1, maboroutu::endian::little>(buf, grown->offset)
-       : maboroutu::read_uint<1, maboroutu::endian::big>(buf, grown->offset);
+   auto read_result =
+       (endian == maboroutu::endian::little)
+           ? maboroutu::read_uint<1, maboroutu::endian::little>(
+                 buf, grown->offset)
+           : maboroutu::read_uint<1, maboroutu::endian::big>(
+                 buf, grown->offset);
    ASSERT_TRUE(read_result.has_value());
    EXPECT_EQ(*read_result, original);
 }
@@ -181,13 +189,19 @@ TEST_P(BinaryLayoutUintRoundTrip, Width2) {
    ASSERT_TRUE(grown.has_value());
    auto const endian = GetParam();
    constexpr std::uint16_t original = 0xABCD;
-   auto write_result = (endian == maboroutu::endian::little)
-       ? maboroutu::write_uint<2, maboroutu::endian::little>(buf, grown->offset, original)
-       : maboroutu::write_uint<2, maboroutu::endian::big>(buf, grown->offset, original);
+   auto write_result =
+       (endian == maboroutu::endian::little)
+           ? maboroutu::write_uint<2, maboroutu::endian::little>(
+                 buf, grown->offset, original)
+           : maboroutu::write_uint<2, maboroutu::endian::big>(
+                 buf, grown->offset, original);
    ASSERT_TRUE(write_result.has_value());
-   auto read_result = (endian == maboroutu::endian::little)
-       ? maboroutu::read_uint<2, maboroutu::endian::little>(buf, grown->offset)
-       : maboroutu::read_uint<2, maboroutu::endian::big>(buf, grown->offset);
+   auto read_result =
+       (endian == maboroutu::endian::little)
+           ? maboroutu::read_uint<2, maboroutu::endian::little>(
+                 buf, grown->offset)
+           : maboroutu::read_uint<2, maboroutu::endian::big>(
+                 buf, grown->offset);
    ASSERT_TRUE(read_result.has_value());
    EXPECT_EQ(*read_result, original);
 }
@@ -198,13 +212,19 @@ TEST_P(BinaryLayoutUintRoundTrip, Width4) {
    ASSERT_TRUE(grown.has_value());
    auto const endian = GetParam();
    constexpr std::uint32_t original = 0x89ABCDEF;
-   auto write_result = (endian == maboroutu::endian::little)
-       ? maboroutu::write_uint<4, maboroutu::endian::little>(buf, grown->offset, original)
-       : maboroutu::write_uint<4, maboroutu::endian::big>(buf, grown->offset, original);
+   auto write_result =
+       (endian == maboroutu::endian::little)
+           ? maboroutu::write_uint<4, maboroutu::endian::little>(
+                 buf, grown->offset, original)
+           : maboroutu::write_uint<4, maboroutu::endian::big>(
+                 buf, grown->offset, original);
    ASSERT_TRUE(write_result.has_value());
-   auto read_result = (endian == maboroutu::endian::little)
-       ? maboroutu::read_uint<4, maboroutu::endian::little>(buf, grown->offset)
-       : maboroutu::read_uint<4, maboroutu::endian::big>(buf, grown->offset);
+   auto read_result =
+       (endian == maboroutu::endian::little)
+           ? maboroutu::read_uint<4, maboroutu::endian::little>(
+                 buf, grown->offset)
+           : maboroutu::read_uint<4, maboroutu::endian::big>(
+                 buf, grown->offset);
    ASSERT_TRUE(read_result.has_value());
    EXPECT_EQ(*read_result, original);
 }
@@ -215,20 +235,26 @@ TEST_P(BinaryLayoutUintRoundTrip, Width8) {
    ASSERT_TRUE(grown.has_value());
    auto const endian = GetParam();
    constexpr std::uint64_t original = 0x0123456789ABCDEFull;
-   auto write_result = (endian == maboroutu::endian::little)
-       ? maboroutu::write_uint<8, maboroutu::endian::little>(buf, grown->offset, original)
-       : maboroutu::write_uint<8, maboroutu::endian::big>(buf, grown->offset, original);
+   auto write_result =
+       (endian == maboroutu::endian::little)
+           ? maboroutu::write_uint<8, maboroutu::endian::little>(
+                 buf, grown->offset, original)
+           : maboroutu::write_uint<8, maboroutu::endian::big>(
+                 buf, grown->offset, original);
    ASSERT_TRUE(write_result.has_value());
-   auto read_result = (endian == maboroutu::endian::little)
-       ? maboroutu::read_uint<8, maboroutu::endian::little>(buf, grown->offset)
-       : maboroutu::read_uint<8, maboroutu::endian::big>(buf, grown->offset);
+   auto read_result =
+       (endian == maboroutu::endian::little)
+           ? maboroutu::read_uint<8, maboroutu::endian::little>(
+                 buf, grown->offset)
+           : maboroutu::read_uint<8, maboroutu::endian::big>(
+                 buf, grown->offset);
    ASSERT_TRUE(read_result.has_value());
    EXPECT_EQ(*read_result, original);
 }
 
 INSTANTIATE_TEST_SUITE_P(LittleAndBig, BinaryLayoutUintRoundTrip,
-                        ::testing::Values(maboroutu::endian::little,
-                                         maboroutu::endian::big));
+                         ::testing::Values(maboroutu::endian::little,
+                                           maboroutu::endian::big));
 
 // --- 非標準幅（3バイト、FLACの24bit長フィールド相当） -------------------
 TEST(MaboroutuBinaryLayout, Width3NonStandardRawBytesBigEndian) {
@@ -236,8 +262,8 @@ TEST(MaboroutuBinaryLayout, Width3NonStandardRawBytesBigEndian) {
    auto grown = buf.grow(3);
    ASSERT_TRUE(grown.has_value());
    constexpr std::uint32_t original = 0x00ABCDEF;
-   auto write_result =
-       maboroutu::write_uint<3, maboroutu::endian::big>(buf, grown->offset, original);
+   auto write_result = maboroutu::write_uint<3, maboroutu::endian::big>(
+       buf, grown->offset, original);
    ASSERT_TRUE(write_result.has_value());
 
    auto const &raw = buf.bytes();
@@ -246,8 +272,8 @@ TEST(MaboroutuBinaryLayout, Width3NonStandardRawBytesBigEndian) {
    EXPECT_EQ(std::to_integer<unsigned>(raw[1]), 0xCDu);
    EXPECT_EQ(std::to_integer<unsigned>(raw[2]), 0xEFu);
 
-   auto read_result =
-       maboroutu::read_uint<3, maboroutu::endian::big>(buf, grown->offset);
+   auto read_result = maboroutu::read_uint<3, maboroutu::endian::big>(
+       buf, grown->offset);
    ASSERT_TRUE(read_result.has_value());
    EXPECT_EQ(*read_result, original);
 }
@@ -267,8 +293,8 @@ TEST(MaboroutuBinaryLayout, Width3NonStandardRawBytesLittleEndian) {
    EXPECT_EQ(std::to_integer<unsigned>(raw[1]), 0xCDu);
    EXPECT_EQ(std::to_integer<unsigned>(raw[2]), 0xABu);
 
-   auto read_result =
-       maboroutu::read_uint<3, maboroutu::endian::little>(buf, grown->offset);
+   auto read_result = maboroutu::read_uint<3, maboroutu::endian::little>(
+       buf, grown->offset);
    ASSERT_TRUE(read_result.has_value());
    EXPECT_EQ(*read_result, original);
 }
@@ -303,19 +329,7 @@ TEST(MaboroutuBinaryLayout, ConsecutiveWriteUintDoNotCorruptAdjacentRegions) {
 }
 
 // =======================================================================
-// index_ref
-// =======================================================================
-namespace table_tags {
-struct sample_table {};
-} // namespace table_tags
-
-TEST(MaboroutuBinaryLayout, IndexRefHoldsIndexValue) {
-   maboroutu::index_ref<table_tags::sample_table> ref{.index = 42};
-   EXPECT_EQ(ref.index, 42u);
-}
-
-// =======================================================================
-// offset_patch / reserve_patch
+// position_patch / reserve_patch
 // =======================================================================
 TEST(MaboroutuBinaryLayout, ReservePatchIsZeroFilledInitially) {
    memory_buffer buf;
@@ -334,14 +348,15 @@ TEST(MaboroutuBinaryLayout, ResolvePatchWritesFinalValueReadableViaReadUint) {
    memory_buffer buf;
    auto patch = maboroutu::reserve_patch<4, maboroutu::endian::big>(buf);
    ASSERT_TRUE(patch.has_value());
-   auto const placeholder = patch->placeholder();
+   // position() は予約された先頭バイトオフセットを返す（std::size_t）。
+   auto const patch_pos = patch->position();
 
    auto resolve_result = patch->resolve(std::uint32_t{0xCAFEBABE});
    ASSERT_TRUE(resolve_result.has_value());
    EXPECT_TRUE(patch->resolved());
 
    auto read_result =
-       maboroutu::read_uint<4, maboroutu::endian::big>(buf, placeholder.offset);
+       maboroutu::read_uint<4, maboroutu::endian::big>(buf, patch_pos);
    ASSERT_TRUE(read_result.has_value());
    EXPECT_EQ(*read_result, 0xCAFEBABEu);
 }
@@ -365,10 +380,11 @@ TEST(MaboroutuBinaryLayout, NestedPatchesResolveOuterWithInnerEndOffset) {
 
    // 外側(親)のプレースホルダを、子要素の終端オフセットで解決する。
    ASSERT_TRUE(
-       outer_patch->resolve(static_cast<std::uint32_t>(end_offset)).has_value());
+       outer_patch->resolve(static_cast<std::uint32_t>(end_offset))
+           .has_value());
 
    auto read_result = maboroutu::read_uint<4, maboroutu::endian::big>(
-       buf, outer_patch->placeholder().offset);
+       buf, outer_patch->position());
    ASSERT_TRUE(read_result.has_value());
    EXPECT_EQ(*read_result, end_offset);
 }
@@ -383,8 +399,71 @@ TEST(MaboroutuBinaryLayout, AbandonedPatchDestructsWithoutAssertFailure) {
    // assertは発火しない(発火すればこのテスト自体がクラッシュする)。
 }
 
+// --- position() は reserve_patch 呼び出し時点でのバッファ末尾を返す -----
+TEST(MaboroutuBinaryLayout, PositionReturnsOffsetOfReservedPlaceholder) {
+   memory_buffer buf;
+   // まず3バイト書き込んでからパッチを予約すると、
+   // position() は 3 を返すはず。
+   std::array<std::byte, 3> prefix{};
+   ASSERT_TRUE(
+       buf.append(std::span<std::byte const>(prefix.data(), prefix.size()))
+           .has_value());
+
+   auto patch = maboroutu::reserve_patch<4, maboroutu::endian::big>(buf);
+   ASSERT_TRUE(patch.has_value());
+   EXPECT_EQ(patch->position(), 3u);
+   patch->abandon();
+}
+
+// --- ムーブするとムーブ元は「解決済み」扱いになる -------------------------
+// position_patch はコピー不可・ムーブのみ。ムーブ元のデストラクタは
+// assert を発火させない（二重解決防止のため _resolved = true に遷移する）。
+TEST(MaboroutuBinaryLayout, MovedFromPatchDestructsSafely) {
+   memory_buffer buf;
+   auto patch = maboroutu::reserve_patch<4, maboroutu::endian::big>(buf);
+   ASSERT_TRUE(patch.has_value());
+
+   // ムーブ後も position() / resolved() が呼べることを確認する。
+   auto moved = std::move(*patch);
+   EXPECT_FALSE(moved.resolved());
+   EXPECT_EQ(moved.position(), 0u);
+
+   // ムーブ先で正常に解決する。
+   ASSERT_TRUE(moved.resolve(std::uint32_t{0xDEAD}).has_value());
+   EXPECT_TRUE(moved.resolved());
+   // patch 自体はムーブ元なので、ここでスコープを抜けてもassertは発火しない。
+}
+
+// --- 複数パッチを連続して予約すると、それぞれ独立した位置を持つ -----------
+TEST(MaboroutuBinaryLayout, ConsecutiveReservePatchesHaveDistinctPositions) {
+   memory_buffer buf;
+   auto p1 = maboroutu::reserve_patch<2, maboroutu::endian::big>(buf);
+   ASSERT_TRUE(p1.has_value());
+   auto p2 = maboroutu::reserve_patch<4, maboroutu::endian::big>(buf);
+   ASSERT_TRUE(p2.has_value());
+   auto p3 = maboroutu::reserve_patch<1, maboroutu::endian::big>(buf);
+   ASSERT_TRUE(p3.has_value());
+
+   EXPECT_EQ(p1->position(), 0u);
+   EXPECT_EQ(p2->position(), 2u);  // p1の2バイト後
+   EXPECT_EQ(p3->position(), 6u);  // p1(2)+p2(4)バイト後
+
+   ASSERT_TRUE(p1->resolve(std::uint16_t{0xAABB}).has_value());
+   ASSERT_TRUE(p2->resolve(std::uint32_t{0x11223344}).has_value());
+   p3->abandon();
+
+   // 各パッチが隣接領域を汚染していないこと。
+   auto r1 = maboroutu::read_uint<2, maboroutu::endian::big>(buf, 0);
+   auto r2 = maboroutu::read_uint<4, maboroutu::endian::big>(buf, 2);
+   ASSERT_TRUE(r1.has_value());
+   ASSERT_TRUE(r2.has_value());
+   EXPECT_EQ(*r1, 0xAABBu);
+   EXPECT_EQ(*r2, 0x11223344u);
+}
+
 #if defined(GTEST_HAS_DEATH_TEST) && !defined(NDEBUG)
-TEST(MaboroutuBinaryLayoutDeathTest, UnresolvedPatchDestructionTriggersAssert) {
+TEST(MaboroutuBinaryLayoutDeathTest,
+     UnresolvedPatchDestructionTriggersAssert) {
    EXPECT_DEATH(
        {
           memory_buffer buf;
@@ -409,97 +488,5 @@ TEST(MaboroutuBinaryLayoutDeathTest, DoubleResolveTriggersAssert) {
        "");
 }
 #endif // GTEST_HAS_DEATH_TEST && !NDEBUG
-
-// =======================================================================
-// TLV (Tag-Length-Value)
-// =======================================================================
-enum class sample_tag : std::uint8_t { alpha = 1, beta = 2 };
-
-// --- 生バイト列の直接検証（★最重要。read_tlv_record非経由） -----------
-TEST(MaboroutuBinaryLayout, WriteTlvRecordProducesExpectedRawBytes) {
-   memory_buffer buf;
-   std::array<std::byte, 3> payload{std::byte{0xAA}, std::byte{0xBB},
-                                    std::byte{0xCC}};
-   auto write_result =
-       maboroutu::write_tlv_record<1, 2, maboroutu::endian::big, sample_tag>(
-           buf, sample_tag::alpha,
-           std::span<std::byte const>(payload.data(), payload.size()));
-   ASSERT_TRUE(write_result.has_value());
-
-   auto const &raw = buf.bytes();
-   ASSERT_EQ(raw.size(), 1u + 2u + 3u);
-   EXPECT_EQ(std::to_integer<unsigned>(raw[0]), 1u); // tag = alpha
-   EXPECT_EQ(std::to_integer<unsigned>(raw[1]), 0u); // length高位byte
-   EXPECT_EQ(std::to_integer<unsigned>(raw[2]), 3u); // length低位byte
-   EXPECT_EQ(std::to_integer<unsigned>(raw[3]), 0xAAu);
-   EXPECT_EQ(std::to_integer<unsigned>(raw[4]), 0xBBu);
-   EXPECT_EQ(std::to_integer<unsigned>(raw[5]), 0xCCu);
-}
-
-TEST(MaboroutuBinaryLayout, WriteThenReadTlvRecordRoundTrip) {
-   memory_buffer buf;
-   std::array<std::byte, 4> payload{std::byte{1}, std::byte{2}, std::byte{3},
-                                    std::byte{4}};
-   auto write_result =
-       maboroutu::write_tlv_record<1, 2, maboroutu::endian::little, sample_tag>(
-           buf, sample_tag::beta,
-           std::span<std::byte const>(payload.data(), payload.size()));
-   ASSERT_TRUE(write_result.has_value());
-
-   auto read_result =
-       maboroutu::read_tlv_record<1, 2, maboroutu::endian::little, sample_tag>(
-           buf, write_result->offset);
-   ASSERT_TRUE(read_result.has_value());
-   EXPECT_EQ(read_result->tag, sample_tag::beta);
-   EXPECT_EQ(read_result->payload.size, payload.size());
-   EXPECT_EQ(read_result->record.offset, write_result->offset);
-   EXPECT_EQ(read_result->record.size, write_result->size);
-
-   auto payload_read = buf.read(read_result->payload);
-   ASSERT_TRUE(payload_read.has_value());
-   for (std::size_t i = 0; i < payload.size(); ++i) {
-      EXPECT_EQ(payload_read->value[i], payload[i]);
-   }
-}
-
-TEST(MaboroutuBinaryLayout, MultipleTlvRecordsCanBeWalkedSequentially) {
-   memory_buffer buf;
-   std::array<std::byte, 2> payload_a{std::byte{0x01}, std::byte{0x02}};
-   std::array<std::byte, 1> payload_b{std::byte{0xFF}};
-
-   auto rec_a =
-       maboroutu::write_tlv_record<1, 1, maboroutu::endian::big, sample_tag>(
-           buf, sample_tag::alpha,
-           std::span<std::byte const>(payload_a.data(), payload_a.size()));
-   ASSERT_TRUE(rec_a.has_value());
-   auto rec_b =
-       maboroutu::write_tlv_record<1, 1, maboroutu::endian::big, sample_tag>(
-           buf, sample_tag::beta,
-           std::span<std::byte const>(payload_b.data(), payload_b.size()));
-   ASSERT_TRUE(rec_b.has_value());
-
-   // record.offset + record.size で次レコード位置を求めながら前進する
-   // (終端判定は呼び出し側の責務、という設計の確認)。
-   auto first =
-       maboroutu::read_tlv_record<1, 1, maboroutu::endian::big, sample_tag>(buf,
-                                                                            0);
-   ASSERT_TRUE(first.has_value());
-   EXPECT_EQ(first->tag, sample_tag::alpha);
-
-   auto const next_offset = first->record.offset + first->record.size;
-   auto second =
-       maboroutu::read_tlv_record<1, 1, maboroutu::endian::big, sample_tag>(
-           buf, next_offset);
-   ASSERT_TRUE(second.has_value());
-   EXPECT_EQ(second->tag, sample_tag::beta);
-
-   // さらに前進するとデータが尽きており、out_of_rangeで失敗する
-   // (終端判定を呼び出し側の失敗検知に委ねる設計の確認)。
-   auto const past_end_offset = second->record.offset + second->record.size;
-   auto third =
-       maboroutu::read_tlv_record<1, 1, maboroutu::endian::big, sample_tag>(
-           buf, past_end_offset);
-   EXPECT_FALSE(third.has_value());
-}
 
 } // namespace
