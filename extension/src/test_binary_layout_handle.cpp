@@ -50,6 +50,7 @@ class memory_buffer {
 
  public:
    template <class T> using result_type = maboroutu::data_source_result<T>;
+   using view_type = std::span<std::byte>;
 
    [[nodiscard]] auto size() const -> result_type<std::size_t> {
       return _data.size();
@@ -85,8 +86,7 @@ class memory_buffer {
       _data.resize(_data.size() + n);
       return maboroutu::region{.offset = offset, .size = n};
    }
-   auto view(maboroutu::region r)
-       -> maboroutu::data_buffer_result<std::span<std::byte>> {
+   auto view(maboroutu::region r) -> maboroutu::data_buffer_result<view_type> {
       if (r.offset + r.size > _data.size()) {
          return std::unexpected(
              maboroutu::error<buffer_code_type>(buffer_code_type::out_of_range));
