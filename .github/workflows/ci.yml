@@ -182,4 +182,4 @@ jobs:
 
       - name: Test
         working-directory: build
-        run: ctest --output-on-failure
+        run: ctest -C Debug --output-on-failure
