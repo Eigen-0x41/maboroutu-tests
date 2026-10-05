@@ -13,6 +13,8 @@
 !/core/*
 !/extension/
 !/extension/*
+!/error/
+!/error/*
 
 !/.clang-format
 !/.clang-tidy
