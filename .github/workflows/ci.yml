@@ -72,14 +72,13 @@ env:
   MABOROUTU_GIT_TAG: "develop"
 
 jobs:
-  matrix:
-    project_directory: [., error/abort, error/terminate, error/throw]
   clang:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04]
         clang: [18, 19]
+        project_directory: [., error/abort, error/terminate, error/throw]
         build_type: [Debug, Release]
     runs-on: ${{ matrix.os }}
     steps:
@@ -129,6 +128,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04]
         gcc: [15, 16]
+        project_directory: [., error/abort, error/terminate, error/throw]
         build_type: [Debug, Release]
     runs-on: ${{ matrix.os }}
     steps:
@@ -177,6 +177,7 @@ jobs:
             version: "Visual Studio 18 2026"
           - os: windows-2022
             version: "Visual Studio 17 2022"
+        project_directory: [., error/abort, error/terminate, error/throw]
         build_type: [Debug, Release]
     runs-on: ${{ matrix.env.os }}
     steps:
