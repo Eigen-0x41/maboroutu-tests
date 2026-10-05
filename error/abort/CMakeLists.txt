@@ -28,7 +28,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 set(MABOROUTU_FATAL_TO_TERMINATE OFF)
-add_subdirectory(../lib)
+add_subdirectory(../lib ${CMAKE_CURRENT_BINARY_DIR}/lib)
 
 ### Main
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/${PROJECT_NAME}.cpp)

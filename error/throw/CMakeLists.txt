@@ -13,30 +13,22 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 
-option(MABOROUTU_ENABLE_EXTENSION
-   "Build/verify maboroutu_extension module tests (slot_map, keyed_slot_map, \
-stream_data_source, console, source_location_format). Mirrors the library's \
-own MABOROUTU_ENABLE_EXTENSION option; when OFF, the extension/ test \
-directory is skipped entirely."
-   ON)
-
-
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-   # clang++
-   add_compile_options(--pedantic-errors)
+  # clang++
+  add_compile_options(--pedantic-errors)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-   # g++
-   add_compile_options(--pedantic-errors)
+  # g++
+  add_compile_options(--pedantic-errors)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-   # icc, icx
-   add_compile_options(--pedantic-errors)
+  # icc, icx
+  add_compile_options(--pedantic-errors)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-   # cl, clang-cl
-   add_compile_options(/permissive- /EHscr)
+  # cl, clang-cl
+  add_compile_options(/permissive- /EHscr)
 endif()
 
 set(MABOROUTU_FATAL_TO_TERMINATE ON)
-add_subdirectory(../lib)
+add_subdirectory(../lib ${CMAKE_CURRENT_BINARY_DIR}/lib)
 
 ### Main
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/${PROJECT_NAME}.cpp)
