@@ -31,7 +31,7 @@ set(MABOROUTU_FATAL_TO_TERMINATE ON)
 add_subdirectory(../lib ${CMAKE_CURRENT_BINARY_DIR}/lib)
 
 ### Main
-add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/${PROJECT_NAME}.cpp)
+add_executable(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/../src/test.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
 
 ### Dependencies
