@@ -39,7 +39,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
      /EHs-c-r-)
 endif()
 
-set(MABOROUTU_FATAL_TO_TERMINATE OFF)
+add_compile_definitions(_HAS_EXCEPTIONS=0)
 add_subdirectory(../lib ${CMAKE_CURRENT_BINARY_DIR}/lib)
 
 ### Main
