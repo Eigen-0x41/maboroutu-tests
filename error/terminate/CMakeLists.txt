@@ -51,5 +51,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE maboroutu_test_error_impl)
 
 enable_testing()
 add_test(NAME run_test_terminate COMMAND ${PROJECT_NAME})
-set_tests_properties(${PROJECT_NAME} PROPERTIES PASS_REGULAR_EXPRESSION "TERMINATE_HANDLER")
-set_tests_properties(${PROJECT_NAME} PROPERTIES FAIL_REGULAR_EXPRESSION  "ABORT_SIGNAL|UNREACHABLE")
+set_tests_properties(run_test_terminate PROPERTIES PASS_REGULAR_EXPRESSION "TERMINATE_HANDLER")
+set_tests_properties(run_test_terminate PROPERTIES FAIL_REGULAR_EXPRESSION  "ABORT_SIGNAL|UNREACHABLE")
