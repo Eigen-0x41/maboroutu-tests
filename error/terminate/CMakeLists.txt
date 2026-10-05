@@ -39,8 +39,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
      /EHs-c-r-)
 endif()
 
-
-set(MABOROUTU_FATAL_TO_TERMINATE ON)
+add_compile_definitions(MABOROUTU_FATAL_TO_TERMINATE)
 add_subdirectory(../lib ${CMAKE_CURRENT_BINARY_DIR}/lib)
 
 ### Main
@@ -52,3 +51,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE maboroutu_test_error_impl)
 
 enable_testing()
 add_test(NAME run_test_terminate COMMAND ${PROJECT_NAME})
+set_tests_properties(${PROJECT_NAME} PROPERTIES PASS_REGULAR_EXPRESSION "TERMINATE_HANDLER")
+set_tests_properties(${PROJECT_NAME} PROPERTIES FAIL_REGULAR_EXPRESSION  "ABORT_SIGNAL|UNREACHABLE")
