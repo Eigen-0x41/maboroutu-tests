@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.28)
 
 option(MABOROUTU_ENABLE_EXTENSION
    "Build/verify maboroutu_extension module tests (slot_map, keyed_slot_map, \
-stream_data_source, console, source_location_format). Mirrors the library's \
-own MABOROUTU_ENABLE_EXTENSION option; when OFF, the extension/ test \
-directory is skipped entirely."
-   ON)
+   stream_data_source, console, source_location_format). Mirrors the library's \
+   own MABOROUTU_ENABLE_EXTENSION option; when OFF, the extension/ test \
+   directory is skipped entirely."
+   OFF)
 
 project(maboroutu_test_error_impl
     VERSION 0.0.0.0
