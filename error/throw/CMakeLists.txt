@@ -15,17 +15,27 @@ set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # clang++
-  add_compile_options(--pedantic-errors)
+  add_compile_options(
+     $<IF:$<CONFIG:Debug>,-O0,-O2>
+     --pedantic-errors)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   # g++
-  add_compile_options(--pedantic-errors)
+  add_compile_options(
+     $<IF:$<CONFIG:Debug>,-O0,-O2>
+     --pedantic-errors)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
   # icc, icx
-  add_compile_options(--pedantic-errors)
+  add_compile_options(
+     $<IF:$<CONFIG:Debug>,-O0,-O2>
+     --pedantic-errors)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   # cl, clang-cl
-  add_compile_options(/permissive- /EHscr)
+  add_compile_options(
+     $<IF:$<CONFIG:Debug>,/Od,/O2>
+     /permissive-
+     /EHscr)
 endif()
+
 
 set(MABOROUTU_FATAL_TO_TERMINATE ON)
 add_subdirectory(../lib ${CMAKE_CURRENT_BINARY_DIR}/lib)

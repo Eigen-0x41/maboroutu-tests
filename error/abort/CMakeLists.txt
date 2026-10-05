@@ -15,16 +15,28 @@ set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # clang++
-  add_compile_options(--pedantic-errors -fno-exceptions)
+  add_compile_options(
+     $<IF:$<CONFIG:Debug>,-O0,-O2>
+     --pedantic-errors
+     -fno-exceptions)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   # g++
-  add_compile_options(--pedantic-errors -fno-exceptions)
+  add_compile_options(
+     $<IF:$<CONFIG:Debug>,-O0,-O2>
+     --pedantic-errors
+     -fno-exceptions)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
   # icc, icx
-  add_compile_options(--pedantic-errors -fno-exceptions)
+  add_compile_options(
+     $<IF:$<CONFIG:Debug>,-O0,-O2>
+     --pedantic-errors
+     -fno-exceptions)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   # cl, clang-cl
-  add_compile_options(/permissive- /EHs-c-r-)
+  add_compile_options(
+     $<IF:$<CONFIG:Debug>,/Od,/O2>
+     /permissive-
+     /EHs-c-r-)
 endif()
 
 set(MABOROUTU_FATAL_TO_TERMINATE OFF)
