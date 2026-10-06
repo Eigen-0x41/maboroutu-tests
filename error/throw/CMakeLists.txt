@@ -80,5 +80,5 @@ target_link_libraries(${PROJECT_NAME}1 PRIVATE maboroutu::core)
 
 
 enable_testing()
-add_test(NAME run_test_throw COMMAND ${PROJECT_NAME}0)
-add_test(NAME run_test_throw COMMAND ${PROJECT_NAME}1)
+add_test(NAME run_test_throw0 COMMAND ${PROJECT_NAME}0)
+add_test(NAME run_test_throw1 COMMAND ${PROJECT_NAME}1)
