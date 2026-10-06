@@ -18,10 +18,10 @@ auto main() -> int {
   });
 
   test_error(false);
-return  maboroutu::invoke_or_recover(
+  return maboroutu::invoke_or_recover(
       [] -> int {
         test_error(true);
-        return EXIT_FAILUER;
+        return EXIT_FAILURE;
       },
       [] -> int { return EXIT_SUCCESS; });
 }
