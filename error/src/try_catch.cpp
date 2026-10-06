@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string_view>
 import error_impl;
-import maboroutu.core;
+import maboroutu.error;
 
 auto main() -> int {
   std::set_terminate([] {
