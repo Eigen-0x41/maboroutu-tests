@@ -83,6 +83,16 @@ on:
                - msvc
             default: all
 
+         build_type:
+            description: "Target Build Type"
+            required: true
+            type: choice
+            options:
+               - Debug
+               - Release
+               - Both
+            default: Debug
+
 env:
    # NOTE: MABOROUTU_GIT_REPOSITORY / MABOROUTU_GIT_TAG は vcpkg.json の
    # homepageフィールドから推測した既定値であり未検証。実際のURL・ブランチ/
@@ -98,7 +108,8 @@ jobs:
          matrix:
             os: [ubuntu-24.04]
             clang: [18, 19]
-            build_type: [Debug, Release]
+            # build_type: [Debug, Release]
+            build_type: ${{ fromJSON(format('["{0}"]', inputs.build_type)) }}
       runs-on: ${{ matrix.os }}
       steps:
          - uses: actions/checkout@v4
@@ -148,7 +159,7 @@ jobs:
          matrix:
             os: [ubuntu-24.04]
             gcc: [15, 16]
-            build_type: [Debug, Release]
+            build_type: ${{ fromJSON(inputs.build_type == 'Both' && '["Debug", "Release"]' || format('["{0}"]', inputs.build_type)) }}
       runs-on: ${{ matrix.os }}
       steps:
          - uses: actions/checkout@v4
@@ -197,7 +208,7 @@ jobs:
                  version: "Visual Studio 18 2026"
                - os: windows-2022
                  version: "Visual Studio 17 2022"
-            build_type: [Debug, Release]
+            build_type: ${{ fromJSON(inputs.build_type == 'Both' && '["Debug", "Release"]' || format('["{0}"]', inputs.build_type)) }}
       runs-on: ${{ matrix.env.os }}
       steps:
          - uses: actions/checkout@v4
