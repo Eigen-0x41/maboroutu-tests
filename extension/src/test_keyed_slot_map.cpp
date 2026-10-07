@@ -9,6 +9,7 @@
 // 本テストは実装（keyed_slot_map.cppm）のexport済みシグネチャを一次情報
 // として作成した。
 #include <cstddef>
+#include <stdexcept>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -22,6 +23,8 @@ namespace {
 enum class idx_t : std::size_t {};
 using underlying_map = maboroutu::slot_map<idx_t, int>;
 using keyed_map = maboroutu::keyed_slot_map<std::string, underlying_map>;
+// errc::keyed_slot_map は非exportのため、名前を綴らずに型から導出する。
+using code_type = keyed_map::error_type::code_type;
 
 TEST(MaboroutuKeyedSlotMap, RoutedEmplaceThenContainsAndRoutedAt) {
    underlying_map slots;
@@ -42,7 +45,7 @@ TEST(MaboroutuKeyedSlotMap, RoutedEmplaceWithDuplicateKeyFails) {
    auto second = keyed.routed_emplace(std::string("alpha"), 2);
    ASSERT_FALSE(second.has_value());
    EXPECT_EQ(second.error().code(),
-             maboroutu::errc::keyed_slot_map::failed_to_add_key);
+             code_type::failed_to_add_key);
    // 最初に格納した値は変化しない。
    EXPECT_EQ(keyed.routed_at(std::string("alpha")), 1);
 }
@@ -57,7 +60,16 @@ TEST(MaboroutuKeyedSlotMap, RequireRoutedExistDistinguishesMissingKey) {
    auto missing = keyed.require_routed_exist(std::string("beta"));
    ASSERT_FALSE(missing.has_value());
    EXPECT_EQ(missing.error().code(),
-             maboroutu::errc::keyed_slot_map::key_was_not_contain);
+             code_type::key_was_not_contain);
+}
+
+TEST(MaboroutuKeyedSlotMap, RoutedAtWithMissingKeyThrowsOutOfRange) {
+   underlying_map slots;
+   keyed_map keyed(slots);
+   ASSERT_TRUE(keyed.routed_emplace(std::string("alpha"), 1).has_value());
+
+   EXPECT_THROW(static_cast<void>(keyed.routed_at(std::string("beta"))),
+                std::out_of_range);
 }
 
 TEST(MaboroutuKeyedSlotMap, RoutedEraseRemovesKeyAndUnderlyingSlot) {
