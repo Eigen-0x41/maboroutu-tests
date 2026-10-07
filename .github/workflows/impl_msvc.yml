@@ -1,0 +1,48 @@
+name: maboroutu GTest verification implementation
+
+on:
+   workflow_call:
+      inputs:
+         compiler:
+            required: true
+            type: string
+
+         project_directory:
+            required: true
+            type: string
+
+         build_type:
+            required: true
+            type: string
+
+jobs:
+   test:
+      # library_spec.md 4.1.1節: MSVC 19.51.36252 (Build Tools 14.51, VS2026)
+      # で実機確認済みとされているバージョン。
+      strategy:
+         fail-fast: false
+         matrix:
+            env:
+               - os: windows-2025
+                 version: "Visual Studio 18 2026"
+               - os: windows-2022
+                 version: "Visual Studio 17 2022"
+            build_type: ${{ fromJSON(inputs.build_type == 'Both' && '["Debug", "Release"]' || format('["{0}"]', inputs.build_type)) }}
+      runs-on: ${{ matrix.env.os }}
+      steps:
+         - uses: actions/checkout@v4
+
+         - name: Configure
+           working-directory: ${{ inputs.project_directory }}
+           run: >
+              cmake -S . -B build -G "${{ matrix.env.version }}"
+              -DMABOROUTU_GIT_REPOSITORY="${{ vars.MABOROUTU_GIT_REPOSITORY }}"
+              -DMABOROUTU_GIT_TAG="${{ vars.MABOROUTU_GIT_TAG }}"
+
+         - name: Build
+           working-directory: ${{ inputs.project_directory }}
+           run: cmake --build build --config ${{ matrix.build_type }}
+
+         - name: Test
+           working-directory: ${{ inputs.project_directory }}/build
+           run: ctest -C ${{ matrix.build_type }} --output-on-failure

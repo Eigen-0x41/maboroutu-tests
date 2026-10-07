@@ -1,0 +1,66 @@
+name: maboroutu GTest verification implementation
+
+on:
+   workflow_call:
+      inputs:
+         compiler:
+            required: true
+            type: string
+
+         project_directory:
+            required: true
+            type: string
+
+         build_type:
+            required: true
+            type: string
+
+jobs:
+   test:
+      # サポート対象はGCC15以上（本ワークフロー冒頭のコメント参照）。
+      # GCC13(deducing this未対応)・GCC14(modules実装が不安定)は対象外とした。
+      # GCC15はpatch.txt(1〜12)適用後の実機検証で全85テストのパスを確認済み
+      # だが、GCCのC++20 modules実装は他の入力構成でなお不安定になり得る
+      # (PR99426等)ため、念のためcontinue-on-errorは維持する。
+      continue-on-error: true
+      strategy:
+         fail-fast: false
+         matrix:
+            os: [ubuntu-24.04]
+            gcc: [15, 16]
+            build_type: ${{ fromJSON(inputs.build_type == 'Both' && '["Debug", "Release"]' || format('["{0}"]', inputs.build_type)) }}
+      runs-on: ${{ matrix.os }}
+      steps:
+         - uses: actions/checkout@v4
+
+         - name: Install GCC ${{ matrix.gcc }} + Ninja
+           # NOTE: ubuntu-24.04 の既定APTリポジトリには g++-13/14/15 が
+           # 収録されていない(または最新パッチが無い)場合があるため、
+           # ubuntu-toolchain-r/test PPA を追加してから導入する
+           # (Claudeのメモリに残る過去の実機検証手順と同一)。
+           run: |
+              sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends \
+                g++-${{ matrix.gcc }} ninja-build
+
+         - name: Install a CMake new enough to know cxx_std_23 for this compiler
+           run: pipx install "cmake>=3.31" --force
+
+         - name: Configure
+           working-directory: ${{ inputs.project_directory }}
+           run: >
+              cmake -S . -B build -G Ninja
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+              -DCMAKE_C_COMPILER=gcc-${{ matrix.gcc }}
+              -DCMAKE_CXX_COMPILER=g++-${{ matrix.gcc }}
+              -DMABOROUTU_GIT_REPOSITORY="${{ vars.MABOROUTU_GIT_REPOSITORY }}"
+              -DMABOROUTU_GIT_TAG="${{ vars.MABOROUTU_GIT_TAG }}"
+
+         - name: Build
+           working-directory: ${{ inputs.project_directory }}
+           run: cmake --build build -j1 # GCC modules: 並列ビルドでの不安定さを避ける
+
+         - name: Test
+           working-directory: ${{ inputs.project_directory }}/build
+           run: ctest --output-on-failure

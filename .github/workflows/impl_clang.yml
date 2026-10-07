@@ -1,0 +1,60 @@
+name: maboroutu GTest verification implementation
+
+on:
+   workflow_call:
+      inputs:
+         compiler:
+            required: true
+            type: string
+
+         project_directory:
+            required: true
+            type: string
+
+         build_type:
+            required: true
+            type: string
+
+jobs:
+   test:
+      strategy:
+         fail-fast: false
+         matrix:
+            os: [ubuntu-24.04]
+            clang: [18, 19]
+            build_type: ${{ fromJSON(format('["{0}"]', inputs.build_type)) }}
+      runs-on: ${{ matrix.os }}
+      steps:
+         - uses: actions/checkout@v4
+
+         - name: Install Clang ${{ matrix.clang }} + libc++ + Ninja
+           run: |
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends \
+                clang-${{ matrix.clang }} clang-tools-${{ matrix.clang }} \
+                libc++-${{ matrix.clang }}-dev libc++abi-${{ matrix.clang }}-dev \
+                ninja-build
+
+         - name: Install a CMake new enough to know cxx_std_23 for this compiler
+           run: pipx install "cmake>=3.31" --force
+
+         - name: Configure
+           working-directory: ${{ inputs.project_directory }}
+           run: >
+              cmake -S . -B build -G Ninja
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+              -DCMAKE_C_COMPILER=clang-${{ matrix.clang }}
+              -DCMAKE_CXX_COMPILER=clang++-${{ matrix.clang }}
+              -DCMAKE_CXX_FLAGS=-stdlib=libc++
+              -DCMAKE_EXE_LINKER_FLAGS=-stdlib=libc++
+              -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=clang-scan-deps-${{ matrix.clang }}
+              -DMABOROUTU_GIT_REPOSITORY="${{ vars.MABOROUTU_GIT_REPOSITORY }}"
+              -DMABOROUTU_GIT_TAG="${{ vars.MABOROUTU_GIT_TAG }}"
+
+         - name: Build
+           working-directory: ${{ inputs.project_directory }}
+           run: cmake --build build
+
+         - name: Test
+           working-directory: ${{ inputs.project_directory }}/build
+           run: ctest --output-on-failure

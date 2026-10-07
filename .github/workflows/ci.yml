@@ -57,12 +57,11 @@ name: maboroutu GTest verification
 #   自分のフォーク・ブランチでこれらを未修正のまま本ワークフローを走らせる
 #   場合、core/extension のビルドがこの時点で失敗する。
 # =============================================================================
-
 on:
    workflow_dispatch:
       inputs:
          project_directory:
-            description: "Test directorys."
+            description: "Test directory"
             required: true
             type: choice
             options:
@@ -73,7 +72,7 @@ on:
             default: .
 
          compiler:
-            description: "Compilers"
+            description: "Compiler"
             required: true
             type: choice
             options:
@@ -90,140 +89,29 @@ on:
             options:
                - Debug
                - Release
-               - Both
             default: Debug
-
-env:
-   # NOTE: MABOROUTU_GIT_REPOSITORY / MABOROUTU_GIT_TAG は vcpkg.json の
-   # homepageフィールドから推測した既定値であり未検証。実際のURL・ブランチ/
-   # タグに置き換えること。
-   MABOROUTU_GIT_REPOSITORY: "https://github.com/Eigen-0x41/maboroutu.git"
-   MABOROUTU_GIT_TAG: "develop"
 
 jobs:
    clang:
       if: ${{ inputs.compiler == 'all' || inputs.compiler == 'clang' }}
-      strategy:
-         fail-fast: false
-         matrix:
-            os: [ubuntu-24.04]
-            clang: [18, 19]
-            # build_type: [Debug, Release]
-            build_type: ${{ fromJSON(format('["{0}"]', inputs.build_type)) }}
-      runs-on: ${{ matrix.os }}
-      steps:
-         - uses: actions/checkout@v4
-
-         - name: Install Clang ${{ matrix.clang }} + libc++ + Ninja
-           run: |
-              sudo apt-get update
-              sudo apt-get install -y --no-install-recommends \
-                clang-${{ matrix.clang }} clang-tools-${{ matrix.clang }} \
-                libc++-${{ matrix.clang }}-dev libc++abi-${{ matrix.clang }}-dev \
-                ninja-build
-
-         - name: Install a CMake new enough to know cxx_std_23 for this compiler
-           run: pipx install "cmake>=3.31" --force
-
-         - name: Configure
-           working-directory: ${{ inputs.project_directory }}
-           run: >
-              cmake -S . -B build -G Ninja
-              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-              -DCMAKE_C_COMPILER=clang-${{ matrix.clang }}
-              -DCMAKE_CXX_COMPILER=clang++-${{ matrix.clang }}
-              -DCMAKE_CXX_FLAGS=-stdlib=libc++
-              -DCMAKE_EXE_LINKER_FLAGS=-stdlib=libc++
-              -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=clang-scan-deps-${{ matrix.clang }}
-              -DMABOROUTU_GIT_REPOSITORY="${{ env.MABOROUTU_GIT_REPOSITORY }}"
-              -DMABOROUTU_GIT_TAG="${{ env.MABOROUTU_GIT_TAG }}"
-
-         - name: Build
-           working-directory: ${{ inputs.project_directory }}
-           run: cmake --build build
-
-         - name: Test
-           working-directory: ${{ inputs.project_directory }}/build
-           run: ctest --output-on-failure
+      uses: ./.github/workflows/impl_clang.yml
+      with:
+         compiler: clang
+         project_directory: ${{ inputs.project_directory }}
+         build_type: ${{ inputs.build_type }}
 
    gcc:
       if: ${{ inputs.compiler == 'all' || inputs.compiler == 'gcc' }}
-      # サポート対象はGCC15以上（本ワークフロー冒頭のコメント参照）。
-      # GCC13(deducing this未対応)・GCC14(modules実装が不安定)は対象外とした。
-      # GCC15はpatch.txt(1〜12)適用後の実機検証で全85テストのパスを確認済み
-      # だが、GCCのC++20 modules実装は他の入力構成でなお不安定になり得る
-      # (PR99426等)ため、念のためcontinue-on-errorは維持する。
-      continue-on-error: true
-      strategy:
-         fail-fast: false
-         matrix:
-            os: [ubuntu-24.04]
-            gcc: [15, 16]
-            build_type: ${{ fromJSON(inputs.build_type == 'Both' && '["Debug", "Release"]' || format('["{0}"]', inputs.build_type)) }}
-      runs-on: ${{ matrix.os }}
-      steps:
-         - uses: actions/checkout@v4
-
-         - name: Install GCC ${{ matrix.gcc }} + Ninja
-           # NOTE: ubuntu-24.04 の既定APTリポジトリには g++-13/14/15 が
-           # 収録されていない(または最新パッチが無い)場合があるため、
-           # ubuntu-toolchain-r/test PPA を追加してから導入する
-           # (Claudeのメモリに残る過去の実機検証手順と同一)。
-           run: |
-              sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-              sudo apt-get update
-              sudo apt-get install -y --no-install-recommends \
-                g++-${{ matrix.gcc }} ninja-build
-
-         - name: Install a CMake new enough to know cxx_std_23 for this compiler
-           run: pipx install "cmake>=3.31" --force
-
-         - name: Configure
-           working-directory: ${{ inputs.project_directory }}
-           run: >
-              cmake -S . -B build -G Ninja
-              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-              -DCMAKE_C_COMPILER=gcc-${{ matrix.gcc }}
-              -DCMAKE_CXX_COMPILER=g++-${{ matrix.gcc }}
-              -DMABOROUTU_GIT_REPOSITORY="${{ env.MABOROUTU_GIT_REPOSITORY }}"
-              -DMABOROUTU_GIT_TAG="${{ env.MABOROUTU_GIT_TAG }}"
-
-         - name: Build
-           working-directory: ${{ inputs.project_directory }}
-           run: cmake --build build -j1 # GCC modules: 並列ビルドでの不安定さを避ける
-
-         - name: Test
-           working-directory: ${{ inputs.project_directory }}/build
-           run: ctest --output-on-failure
+      uses: ./.github/workflows/impl_gcc.yml
+      with:
+         compiler: gcc
+         project_directory: ${{ inputs.project_directory }}
+         build_type: ${{ inputs.build_type }}
 
    msvc:
       if: ${{ inputs.compiler == 'all' || inputs.compiler == 'msvc' }}
-      # library_spec.md 4.1.1節: MSVC 19.51.36252 (Build Tools 14.51, VS2026)
-      # で実機確認済みとされているバージョン。
-      strategy:
-         fail-fast: false
-         matrix:
-            env:
-               - os: windows-2025
-                 version: "Visual Studio 18 2026"
-               - os: windows-2022
-                 version: "Visual Studio 17 2022"
-            build_type: ${{ fromJSON(inputs.build_type == 'Both' && '["Debug", "Release"]' || format('["{0}"]', inputs.build_type)) }}
-      runs-on: ${{ matrix.env.os }}
-      steps:
-         - uses: actions/checkout@v4
-
-         - name: Configure
-           working-directory: ${{ inputs.project_directory }}
-           run: >
-              cmake -S . -B build -G "${{ matrix.env.version }}"
-              -DMABOROUTU_GIT_REPOSITORY="${{ env.MABOROUTU_GIT_REPOSITORY }}"
-              -DMABOROUTU_GIT_TAG="${{ env.MABOROUTU_GIT_TAG }}"
-
-         - name: Build
-           working-directory: ${{ inputs.project_directory }}
-           run: cmake --build build --config ${{ matrix.build_type }}
-
-         - name: Test
-           working-directory: ${{ inputs.project_directory }}/build
-           run: ctest -C ${{ matrix.build_type }} --output-on-failure
+      uses: ./.github/workflows/impl_msvc.yml
+      with:
+         compiler: msvc
+         project_directory: ${{ inputs.project_directory }}
+         build_type: ${{ inputs.build_type }}
