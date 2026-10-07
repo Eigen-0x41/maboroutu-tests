@@ -24,7 +24,7 @@ enum class idx_t : std::size_t {};
 using underlying_map = maboroutu::slot_map<idx_t, int>;
 using keyed_map = maboroutu::keyed_slot_map<std::string, underlying_map>;
 // errc::keyed_slot_map は非exportのため、名前を綴らずに型から導出する。
-using code_type = keyed_map::error_type::code_type;
+using code_type = decltype(std::declval<maboroutu::keyed_slot_map_result<int>>().error().code());
 
 TEST(MaboroutuKeyedSlotMap, RoutedEmplaceThenContainsAndRoutedAt) {
    underlying_map slots;
