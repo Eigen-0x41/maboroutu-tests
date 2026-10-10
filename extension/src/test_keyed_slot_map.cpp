@@ -104,4 +104,44 @@ TEST(MaboroutuKeyedSlotMap, ConstOverloadsAreReadOnly) {
    EXPECT_TRUE(const_keyed.contains(std::string("alpha")));
 }
 
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+
+struct throwing_value {
+   explicit throwing_value(bool fail) {
+      if (fail) {
+         throw std::runtime_error("constructor failed");
+      }
+   }
+};
+
+using throwing_map = maboroutu::slot_map<idx_t, throwing_value>;
+using throwing_keyed_map =
+    maboroutu::keyed_slot_map<std::string, throwing_map>;
+using throwing_code_type =
+    maboroutu::keyed_slot_map_result<void>::error_type::code_type;
+
+TEST(MaboroutuKeyedSlotMap, RoutedEmplaceRecoversWhenConstructorThrows) {
+   throwing_map slots;
+   throwing_keyed_map keyed(slots);
+
+   auto failed = keyed.routed_emplace(std::string("alpha"), true);
+   ASSERT_FALSE(failed.has_value());
+   EXPECT_EQ(failed.error().code(), throwing_code_type::failed_to_constructed);
+
+   // keyの登録が取り消されている。
+   EXPECT_FALSE(keyed.contains(std::string("alpha")));
+   // checkout()した予約がcancel()でフリーリストへ戻っている。
+   EXPECT_EQ(slots.size(), 0U);
+   EXPECT_EQ(slots.free_size(), 1U);
+
+   // 同じkeyで再登録でき、戻したスロットが再利用される。
+   auto retry = keyed.routed_emplace(std::string("alpha"), false);
+   ASSERT_TRUE(retry.has_value());
+   EXPECT_TRUE(keyed.contains(std::string("alpha")));
+   EXPECT_EQ(slots.size(), 1U);
+   EXPECT_EQ(slots.free_size(), 0U);
+}
+
+#endif
+
 } // namespace
