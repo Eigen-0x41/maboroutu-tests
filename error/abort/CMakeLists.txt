@@ -14,31 +14,34 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  # clang++
-  add_compile_options(
+   # clang++
+   add_compile_options(
      $<IF:$<CONFIG:Debug>,-O0,-O2>
      --pedantic-errors
      -fno-exceptions)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  # g++
-  add_compile_options(
+   # g++
+   add_compile_options(
      $<IF:$<CONFIG:Debug>,-O0,-O2>
      --pedantic-errors
      -fno-exceptions)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-  # icc, icx
-  add_compile_options(
+   # icc, icx
+   add_compile_options(
      $<IF:$<CONFIG:Debug>,-O0,-O2>
      --pedantic-errors
      -fno-exceptions)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  # cl, clang-cl
-  add_compile_options(
+   # cl, clang-cl
+   add_compile_options(
      $<IF:$<CONFIG:Debug>,/Od,/O2>
      /permissive-
      /EHs-c-r-)
 endif()
 
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+   set(MABOROUTU_ENABLE_EXTENSION ON CACHE BOOL "" FORCE)
+endif()
 add_compile_definitions(_HAS_EXCEPTIONS=0)
 add_subdirectory(../lib ${CMAKE_CURRENT_BINARY_DIR}/lib)
 
@@ -49,7 +52,16 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
 ### Dependencies
 target_link_libraries(${PROJECT_NAME} PRIVATE maboroutu_test_error_impl)
 
-enable_testing()
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+   add_executable(${PROJECT_NAME}_extension
+      ${PROJECT_SOURCE_DIR}/../src/extension.cpp)
+   target_link_libraries(${PROJECT_NAME}_extension
+      PRIVATE maboroutu::core maboroutu::extension)
+   add_test(NAME run_test_abort_extension COMMAND ${PROJECT_NAME}_extension)
+endif()
+
 add_test(NAME run_test_abort COMMAND ${PROJECT_NAME})
 set_tests_properties(run_test_abort PROPERTIES PASS_REGULAR_EXPRESSION "ABORT_SIGNAL")
 set_tests_properties(run_test_abort PROPERTIES FAIL_REGULAR_EXPRESSION  "TERMINATE_HANDLER|UNREACHABLE")
+
+enable_testing()
