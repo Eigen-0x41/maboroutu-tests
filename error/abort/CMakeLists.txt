@@ -33,9 +33,8 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
      -fno-exceptions)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
    # cl, clang-cl
-   # /Od がある場合は無限に処理が行われてしまう。
    add_compile_options(
-     $<CONFIG:Release,/O2>
+     $<IF:$<CONFIG:Debug>,/Od,/O2>
      /permissive-
      /EHs-c-r-)
 endif()
