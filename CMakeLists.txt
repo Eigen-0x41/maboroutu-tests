@@ -51,17 +51,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  # clang++
-  add_compile_options(--pedantic-errors)
+   # clang++
+   add_compile_options(--pedantic-errors)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  # g++
-  add_compile_options(--pedantic-errors)
+   # g++
+   add_compile_options(--pedantic-errors)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-  # icc, icx
-  add_compile_options(--pedantic-errors)
+   # icc, icx
+   add_compile_options(--pedantic-errors)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  # cl, clang-cl
-  add_compile_options(/permissive- /EHscr)
+   # cl, clang-cl
+   add_compile_options(/permissive- /EHscr)
 endif()
 
 # import 文しか含まない（自身はモジュールを export しない）翻訳単位も
