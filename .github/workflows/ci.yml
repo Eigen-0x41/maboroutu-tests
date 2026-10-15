@@ -58,21 +58,26 @@ name: maboroutu GTest verification
 #   場合、core/extension のビルドがこの時点で失敗する。
 # =============================================================================
 on:
+   push:
+      branches: [main]
+   pull_request:
+      branches: [main]
    workflow_dispatch:
       inputs:
          project_directory:
-            description: "Test directory"
+            description: "Test directory (all: ., error/abort, error/terminate, error/throw)"
             required: true
             type: choice
             options:
+               - all
                - .
                - error/abort
                - error/terminate
                - error/throw
-            default: .
+            default: all
 
          compiler:
-            description: "Compiler"
+            description: "Compiler (all: clang + msvc + sanitizer. gcc runs only when selected)"
             required: true
             type: choice
             options:
@@ -80,6 +85,7 @@ on:
                - clang
                - gcc
                - msvc
+               - sanitizer
             default: all
 
          build_type:
@@ -87,31 +93,83 @@ on:
             required: true
             type: choice
             options:
+               - Both
                - Debug
                - Release
-            default: Debug
+            default: Both
 
+         library_repository:
+            description: "Library repository URL (default: repository variable MABOROUTU_GIT_REPOSITORY)"
+            required: false
+            type: string
+            default: ""
+
+         library_ref:
+            description: "Library branch/tag/commit (default: repository variable MABOROUTU_GIT_TAG, or main)"
+            required: false
+            type: string
+            default: ""
+
+# 同一ref上の古い実行は新しい実行で置き換える。
+concurrency:
+   group: ${{ github.workflow }}-${{ github.ref }}
+   cancel-in-progress: true
+
+permissions:
+   contents: read
+
+# push / pull_request では inputs が空になるため、以下の式で既定値へ
+# フォールバックする（project_directory: 全て、build_type: Both）。
+# GCCは手動実行（workflow_dispatch）でcompilerにgccを選んだ場合のみ実行する
+# （現状は全バージョンでビルド不可のため、常時実行すると無駄な赤になる）。
 jobs:
    clang:
-      if: ${{ inputs.compiler == 'all' || inputs.compiler == 'clang' }}
+      if: ${{ github.event_name != 'workflow_dispatch' || inputs.compiler == 'all' || inputs.compiler == 'clang' }}
+      strategy:
+         fail-fast: false
+         matrix:
+            project_directory: ${{ fromJSON(inputs.project_directory && inputs.project_directory != 'all' && format('["{0}"]', inputs.project_directory) || '[".", "error/abort", "error/terminate", "error/throw"]') }}
       uses: ./.github/workflows/impl_clang.yml
       with:
          compiler: clang
-         project_directory: ${{ inputs.project_directory }}
-         build_type: ${{ inputs.build_type }}
-
-   gcc:
-      if: ${{ inputs.compiler == 'all' || inputs.compiler == 'gcc' }}
-      uses: ./.github/workflows/impl_gcc.yml
-      with:
-         compiler: gcc
-         project_directory: ${{ inputs.project_directory }}
-         build_type: ${{ inputs.build_type }}
+         project_directory: ${{ matrix.project_directory }}
+         build_type: ${{ inputs.build_type || 'Both' }}
+         library_repository: ${{ inputs.library_repository }}
+         library_ref: ${{ inputs.library_ref }}
 
    msvc:
-      if: ${{ inputs.compiler == 'all' || inputs.compiler == 'msvc' }}
+      if: ${{ github.event_name != 'workflow_dispatch' || inputs.compiler == 'all' || inputs.compiler == 'msvc' }}
+      strategy:
+         fail-fast: false
+         matrix:
+            project_directory: ${{ fromJSON(inputs.project_directory && inputs.project_directory != 'all' && format('["{0}"]', inputs.project_directory) || '[".", "error/abort", "error/terminate", "error/throw"]') }}
       uses: ./.github/workflows/impl_msvc.yml
       with:
          compiler: msvc
-         project_directory: ${{ inputs.project_directory }}
+         project_directory: ${{ matrix.project_directory }}
+         build_type: ${{ inputs.build_type || 'Both' }}
+         library_repository: ${{ inputs.library_repository }}
+         library_ref: ${{ inputs.library_ref }}
+
+   # サニタイザ（ASan + UBSan）。結果は他のジョブとは別のチェックとして表示される。
+   # error/* は終了経路（abort/terminate）の検証が目的のため対象外。
+   sanitizer:
+      if: ${{ github.event_name != 'workflow_dispatch' || inputs.compiler == 'all' || inputs.compiler == 'sanitizer' }}
+      uses: ./.github/workflows/impl_sanitizer.yml
+      with:
+         library_repository: ${{ inputs.library_repository }}
+         library_ref: ${{ inputs.library_ref }}
+
+   gcc:
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.compiler == 'gcc' }}
+      strategy:
+         fail-fast: false
+         matrix:
+            project_directory: ${{ fromJSON(inputs.project_directory && inputs.project_directory != 'all' && format('["{0}"]', inputs.project_directory) || '[".", "error/abort", "error/terminate", "error/throw"]') }}
+      uses: ./.github/workflows/impl_gcc.yml
+      with:
+         compiler: gcc
+         project_directory: ${{ matrix.project_directory }}
          build_type: ${{ inputs.build_type }}
+         library_repository: ${{ inputs.library_repository }}
+         library_ref: ${{ inputs.library_ref }}

@@ -15,6 +15,29 @@ on:
             required: true
             type: string
 
+         library_repository:
+            required: false
+            type: string
+            default: ""
+
+         library_ref:
+            required: false
+            type: string
+            default: ""
+
+         # 本体リポジトリ側のワークフローから呼び出す場合に指定する。
+         # reusable workflowの actions/checkout は既定で呼び出し元
+         # （本体リポジトリ）を取得するため、テスト側を明示する。
+         tests_repository:
+            required: false
+            type: string
+            default: ""
+
+         tests_ref:
+            required: false
+            type: string
+            default: ""
+
 jobs:
    test:
       strategy:
@@ -22,10 +45,13 @@ jobs:
          matrix:
             os: [ubuntu-24.04]
             clang: [18, 19]
-            build_type: ${{ fromJSON(format('["{0}"]', inputs.build_type)) }}
+            build_type: ${{ fromJSON(inputs.build_type == 'Both' && '["Debug", "Release"]' || format('["{0}"]', inputs.build_type)) }}
       runs-on: ${{ matrix.os }}
       steps:
          - uses: actions/checkout@v4
+           with:
+              repository: ${{ inputs.tests_repository || github.repository }}
+              ref: ${{ inputs.tests_ref }}
 
          - name: Install Clang ${{ matrix.clang }} + libc++ + Ninja
            run: |
@@ -48,8 +74,8 @@ jobs:
               -DCMAKE_CXX_FLAGS=-stdlib=libc++
               -DCMAKE_EXE_LINKER_FLAGS=-stdlib=libc++
               -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=clang-scan-deps-${{ matrix.clang }}
-              -DMABOROUTU_GIT_REPOSITORY="${{ vars.MABOROUTU_GIT_REPOSITORY }}"
-              -DMABOROUTU_GIT_TAG="${{ vars.MABOROUTU_GIT_TAG }}"
+              -DMABOROUTU_GIT_REPOSITORY="${{ inputs.library_repository || vars.MABOROUTU_GIT_REPOSITORY || 'https://github.com/Eigen-0x41/maboroutu.git' }}"
+              -DMABOROUTU_GIT_TAG="${{ inputs.library_ref || vars.MABOROUTU_GIT_TAG || 'main' }}"
 
          - name: Build
            working-directory: ${{ inputs.project_directory }}

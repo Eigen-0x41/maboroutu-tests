@@ -15,6 +15,29 @@ on:
             required: true
             type: string
 
+         library_repository:
+            required: false
+            type: string
+            default: ""
+
+         library_ref:
+            required: false
+            type: string
+            default: ""
+
+         # 本体リポジトリ側のワークフローから呼び出す場合に指定する。
+         # reusable workflowの actions/checkout は既定で呼び出し元
+         # （本体リポジトリ）を取得するため、テスト側を明示する。
+         tests_repository:
+            required: false
+            type: string
+            default: ""
+
+         tests_ref:
+            required: false
+            type: string
+            default: ""
+
 jobs:
    test:
       # library_spec.md 4.1.1節: MSVC 19.51.36252 (Build Tools 14.51, VS2026)
@@ -31,13 +54,16 @@ jobs:
       runs-on: ${{ matrix.env.os }}
       steps:
          - uses: actions/checkout@v4
+           with:
+              repository: ${{ inputs.tests_repository || github.repository }}
+              ref: ${{ inputs.tests_ref }}
 
          - name: Configure
            working-directory: ${{ inputs.project_directory }}
            run: >
               cmake -S . -B build -G "${{ matrix.env.version }}"
-              -DMABOROUTU_GIT_REPOSITORY="${{ vars.MABOROUTU_GIT_REPOSITORY }}"
-              -DMABOROUTU_GIT_TAG="${{ vars.MABOROUTU_GIT_TAG }}"
+              -DMABOROUTU_GIT_REPOSITORY="${{ inputs.library_repository || vars.MABOROUTU_GIT_REPOSITORY || 'https://github.com/Eigen-0x41/maboroutu.git' }}"
+              -DMABOROUTU_GIT_TAG="${{ inputs.library_ref || vars.MABOROUTU_GIT_TAG || 'main' }}"
 
          - name: Build
            working-directory: ${{ inputs.project_directory }}
