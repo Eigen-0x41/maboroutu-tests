@@ -86,6 +86,38 @@ TEST(MaboroutuStreamDataSource, SizeResetsPositionToBeginning) {
    EXPECT_EQ(text, "012");
 }
 
+// 確保前に範囲を検証すること（回帰テスト）。検証が確保の後にあると、
+// 巨大なsizeに対して巨大な確保（bad_alloc・メモリ枯渇）が先に発生する。
+TEST(MaboroutuStreamDataSource, ReadWithHugeSizeFailsBeforeAllocation) {
+   maboroutu::stream_data_source<std::istringstream> src(
+       std::string("short"));
+   auto result = src.read(
+       maboroutu::region{.offset = 0, .size = std::size_t{1} << 40});
+   ASSERT_FALSE(result.has_value());
+   EXPECT_EQ(result.error().code(), ds_code_type::out_of_range);
+}
+
+TEST(MaboroutuStreamDataSource, ReadWithRegionOverflowFails) {
+   maboroutu::stream_data_source<std::istringstream> src(
+       std::string("short"));
+   auto result = src.read(maboroutu::region{
+       .offset = 1, .size = ~std::size_t{0}});
+   ASSERT_FALSE(result.has_value());
+   EXPECT_EQ(result.error().code(), ds_code_type::out_of_range);
+}
+
+TEST(MaboroutuStreamDataSource, ReadAfterFailedOversizedReadStillWorks) {
+   maboroutu::stream_data_source<std::istringstream> src(
+       std::string("hello world"));
+   ASSERT_FALSE(
+       src.read(maboroutu::region{.offset = 0, .size = 100}).has_value());
+   auto result = src.read(maboroutu::region{.offset = 6, .size = 5});
+   ASSERT_TRUE(result.has_value());
+   std::string_view text(reinterpret_cast<char const *>(result->value.get()),
+                         result->size);
+   EXPECT_EQ(text, "world");
+}
+
 // ---------------------------------------------------------------------
 // stream_writable_data_source<std::stringstream>
 // ---------------------------------------------------------------------

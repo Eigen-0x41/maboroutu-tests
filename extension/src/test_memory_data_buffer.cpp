@@ -235,4 +235,36 @@ TEST(MaboroutuMemoryDataBuffer, WorksThroughWritableDataSourceHandle) {
    }
 }
 
+// ---------------------------------------------------------------------
+// offset + size が size_t を超える領域（回帰テスト）
+// ---------------------------------------------------------------------
+TEST(MaboroutuMemoryDataBuffer, WriteWithRegionOverflowFailsWithoutChange) {
+   maboroutu::memory_data_buffer buf;
+   std::array<std::byte, 4> data{};
+   ASSERT_TRUE(
+       buf.append(std::span<std::byte const>(data.data(), data.size()))
+           .has_value());
+
+   std::array<std::byte, 8> payload{};
+   auto result = buf.write(
+       maboroutu::region{.offset = ~std::size_t{0} - 2, .size = payload.size()},
+       std::span<std::byte const>(payload.data(), payload.size()));
+   ASSERT_FALSE(result.has_value());
+   EXPECT_EQ(result.error().code(), ds_code_type::out_of_range);
+   EXPECT_EQ(*buf.size(), data.size());
+}
+
+TEST(MaboroutuMemoryDataBuffer, AppendAndGrowWithSizeOverflowFail) {
+   maboroutu::memory_data_buffer buf;
+   std::array<std::byte, 4> data{};
+   ASSERT_TRUE(
+       buf.append(std::span<std::byte const>(data.data(), data.size()))
+           .has_value());
+
+   auto grown = buf.grow(~std::size_t{0});
+   ASSERT_FALSE(grown.has_value());
+   EXPECT_EQ(grown.error().code(), buffer_code_type::out_of_range);
+   EXPECT_EQ(*buf.size(), data.size());
+}
+
 } // namespace
