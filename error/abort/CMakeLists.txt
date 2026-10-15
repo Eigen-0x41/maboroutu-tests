@@ -34,7 +34,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
    # cl, clang-cl
    add_compile_options(
-     $<IF:$<CONFIG:Debug>,/Od,/O2>
+     $<IF:$<CONFIG:Debug>,/O0,/O2>
      /permissive-
      /EHs-c-r-)
 endif()
