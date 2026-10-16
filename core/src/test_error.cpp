@@ -11,6 +11,7 @@
 #include <memory>
 #include <type_traits>
 
+#include <string_view>
 #include <gtest/gtest.h>
 
 import maboroutu.error;
@@ -109,3 +110,53 @@ TEST(MaboroutuError, ResultableHoldsOnlyForVoidValueType) {
 }
 
 } // namespace
+
+// ---------------------------------------------------------------------
+// error_message / message()
+// ---------------------------------------------------------------------
+namespace message_test {
+enum class with_message { first, second };
+enum class without_message { only };
+
+constexpr auto error_message(with_message code) noexcept
+    -> std::string_view {
+   switch (code) {
+   case with_message::first:
+      return "first";
+   case with_message::second:
+      return "second";
+   }
+   return "unknown error";
+}
+
+static_assert(maboroutu::has_error_message<with_message>);
+static_assert(!maboroutu::has_error_message<without_message>);
+
+template <class E>
+concept has_message = requires(E const &e) { e.message(); };
+static_assert(has_message<maboroutu::error<with_message>>);
+static_assert(has_message<maboroutu::error<with_message, int>>);
+static_assert(!has_message<maboroutu::error<without_message>>);
+static_assert(noexcept(std::declval<maboroutu::error<with_message> const &>()
+                           .message()));
+static_assert(maboroutu::error<with_message>(with_message::second).message() ==
+              "second");
+} // namespace message_test
+
+TEST(MaboroutuError, MessageReturnsDescriptionOfCode) {
+   maboroutu::error<message_test::with_message> e(
+       message_test::with_message::first);
+   EXPECT_EQ(e.message(), "first");
+}
+
+TEST(MaboroutuError, MessageIgnoresDetail) {
+   maboroutu::error<message_test::with_message, int> e(
+       message_test::with_message::second, std::make_unique<int>(1));
+   EXPECT_EQ(e.message(), "second");
+}
+
+TEST(MaboroutuError, MessageForUnlistedValueFallsBack) {
+   maboroutu::error<message_test::with_message> e(
+       static_cast<message_test::with_message>(99));
+   EXPECT_EQ(e.message(), "unknown error");
+}

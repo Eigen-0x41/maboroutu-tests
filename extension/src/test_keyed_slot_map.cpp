@@ -145,3 +145,12 @@ TEST(MaboroutuKeyedSlotMap, RoutedEmplaceRecoversWhenConstructorThrows) {
 #endif
 
 } // namespace
+
+TEST(MaboroutuKeyedSlotMapErrc, EnumeratorsAreReachableByName) {
+   using code = maboroutu::errc::keyed_slot_map;
+   maboroutu::error<code> e(code::key_was_not_contain);
+   EXPECT_EQ(e.code(), code::key_was_not_contain);
+   EXPECT_FALSE(e.message().empty());
+   EXPECT_NE(maboroutu::errc::error_message(code::failed_to_add_key),
+             maboroutu::errc::error_message(code::failed_to_constructed));
+}

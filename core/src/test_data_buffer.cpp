@@ -312,3 +312,12 @@ TEST(MaboroutuSegmentedSpanDeathTest,
 #endif // GTEST_HAS_DEATH_TEST && !NDEBUG
 
 } // namespace
+
+TEST(MaboroutuDataBufferErrc, EnumeratorsAreReachableByName) {
+   using code = maboroutu::errc::data_buffer;
+   maboroutu::error<code> e(code::operation_failure);
+   EXPECT_EQ(e.code(), code::operation_failure);
+   EXPECT_FALSE(e.message().empty());
+   EXPECT_NE(maboroutu::errc::error_message(code::out_of_range),
+             maboroutu::errc::error_message(code::invalid_operation));
+}

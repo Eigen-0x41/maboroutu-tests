@@ -163,3 +163,12 @@ TEST(MaboroutuSequentialSource, TryCopySucceedsForCopyableConcreteType) {
 }
 
 } // namespace
+
+TEST(MaboroutuSequentialSourceErrc, EnumeratorsAreReachableByName) {
+   using code = maboroutu::errc::sequential_source;
+   maboroutu::error<code> e(code::invalid_member_variable);
+   EXPECT_EQ(e.code(), code::invalid_member_variable);
+   EXPECT_FALSE(e.message().empty());
+   EXPECT_NE(maboroutu::errc::error_message(code::out_of_range),
+             maboroutu::errc::error_message(code::operation_failure));
+}

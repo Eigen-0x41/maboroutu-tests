@@ -15,6 +15,8 @@
 #include <type_traits>
 #include <utility>
 
+#include <string_view>
+#include <type_traits>
 #include <gtest/gtest.h>
 
 import maboroutu.core;
@@ -182,3 +184,16 @@ TEST(MaboroutuDataSource, HandlePropagatesErrorFromWrappedSource) {
 }
 
 } // namespace
+
+// errc::data_source を名前で直接参照できること（enum単位のexport）。
+TEST(MaboroutuDataSourceErrc, EnumeratorsAreReachableByName) {
+   using code = maboroutu::errc::data_source;
+   static_assert(std::is_same_v<code, data_source_code_type>);
+   maboroutu::error<code> e(code::out_of_range);
+   EXPECT_EQ(e.code(), code::out_of_range);
+   EXPECT_FALSE(e.message().empty());
+   EXPECT_NE(maboroutu::errc::error_message(code::out_of_range),
+             maboroutu::errc::error_message(code::operation_failure));
+   EXPECT_EQ(maboroutu::errc::error_message(static_cast<code>(99)),
+             "unknown error");
+}
