@@ -42,6 +42,7 @@
 #include <expected>
 #include <memory>
 #include <span>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -432,6 +433,20 @@ TEST(MaboroutuBinaryLayout, MovedFromPatchDestructsSafely) {
    ASSERT_TRUE(moved.resolve(std::uint32_t{0xDEAD}).has_value());
    EXPECT_TRUE(moved.resolved());
    // patch 自体はムーブ元なので、ここでスコープを抜けてもassertは発火しない。
+}
+
+// --- position_patch はコピー不可・ムーブのみ（回帰テスト） -----------------
+// コピー代入が可能だと、解決責任が複数のパッチに分散し、RAIIの所有権の
+// 一意性が崩れる。
+TEST(MaboroutuBinaryLayout, PatchIsMoveOnly) {
+   using patch_type =
+       maboroutu::position_patch<4, maboroutu::endian::big,
+                                 maboroutu::null_data_buffer>;
+   static_assert(!std::is_copy_constructible_v<patch_type>);
+   static_assert(!std::is_copy_assignable_v<patch_type>);
+   static_assert(std::is_nothrow_move_constructible_v<patch_type>);
+   static_assert(std::is_nothrow_move_assignable_v<patch_type>);
+   SUCCEED();
 }
 
 // --- 複数パッチを連続して予約すると、それぞれ独立した位置を持つ -----------

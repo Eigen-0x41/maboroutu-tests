@@ -296,6 +296,64 @@ TEST_F(SegmentedSpanTest, NonConstIteratorConvertsToConstIterator) {
    EXPECT_EQ(std::to_integer<unsigned>(*cit), 0x10u);
 }
 
+// --- std::vector を裏付けとするコンテナ（回帰テスト） --------------------
+// コンテナをムーブした後にそのサイズを参照すると、std::vector では空として
+// 扱われて正しい引数でも失敗していた。
+namespace {
+using vector_segmented_span =
+    maboroutu::basic_segmented_span<std::vector, std::byte, 4>;
+
+auto make_vector_units(std::array<std::byte, 4> &u0,
+                       std::array<std::byte, 4> &u1)
+    -> std::vector<std::span<std::byte, 4>> {
+   return {std::span<std::byte, 4>{u0}, std::span<std::byte, 4>{u1}};
+}
+} // namespace
+
+TEST(MaboroutuSegmentedSpan, VectorBackedRegionConstructorKeepsRegion) {
+   std::array<std::byte, 4> u0{std::byte{0x10}, std::byte{0x11},
+                               std::byte{0x12}, std::byte{0x13}};
+   std::array<std::byte, 4> u1{std::byte{0x20}, std::byte{0x21},
+                               std::byte{0x22}, std::byte{0x23}};
+   vector_segmented_span seg(make_vector_units(u0, u1),
+                             maboroutu::region{.offset = 2, .size = 4});
+   ASSERT_EQ(seg.size(), 4u);
+   EXPECT_EQ(seg.segments().size(), 2u);
+   EXPECT_EQ(seg[0], u0[2]);
+   EXPECT_EQ(seg[1], u0[3]);
+   EXPECT_EQ(seg[2], u1[0]);
+   EXPECT_EQ(seg[3], u1[1]);
+}
+
+// (container, size): 先頭から size バイトを参照する。
+TEST(MaboroutuSegmentedSpan, VectorBackedSizeConstructorReferencesHeadRange) {
+   std::array<std::byte, 4> u0{};
+   std::array<std::byte, 4> u1{std::byte{0x20}, std::byte{0x21},
+                               std::byte{0x22}, std::byte{0x23}};
+   vector_segmented_span seg(make_vector_units(u0, u1), std::size_t{6});
+   ASSERT_EQ(seg.size(), 6u);
+   EXPECT_EQ(seg[5], u1[1]);
+}
+
+// (container): 全ユニットを参照する。
+TEST(MaboroutuSegmentedSpan, VectorBackedSingleArgumentCoversAllUnits) {
+   std::array<std::byte, 4> u0{};
+   std::array<std::byte, 4> u1{};
+   vector_segmented_span seg(make_vector_units(u0, u1));
+   EXPECT_EQ(seg.size(), 8u);
+}
+
+TEST_F(SegmentedSpanTest, SizeConstructorReferencesHeadRange) {
+   maboroutu::segmented_span<std::byte, 4> seg{
+       std::span<std::span<std::byte, 4>>{_spans}, std::size_t{5}};
+   ASSERT_EQ(seg.size(), 5u);
+   EXPECT_EQ(seg[4], _u1[0]);
+}
+
+TEST_F(SegmentedSpanTest, SingleArgumentConstructorCoversAllUnits) {
+   EXPECT_EQ(make_seg().size(), 8u);
+}
+
 #if defined(GTEST_HAS_DEATH_TEST) && !defined(NDEBUG)
 // --- operator[] OOB はデバッグビルドで assert を発火させる ---------------
 // NOTE: at() は throw で検出するが、operator[] は assert（UB 寄りの

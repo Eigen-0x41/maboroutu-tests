@@ -12,6 +12,8 @@
 #include <cstddef>
 #include <span>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -265,6 +267,61 @@ TEST(MaboroutuMemoryDataBuffer, AppendAndGrowWithSizeOverflowFail) {
    ASSERT_FALSE(grown.has_value());
    EXPECT_EQ(grown.error().code(), buffer_code_type::out_of_range);
    EXPECT_EQ(*buf.size(), data.size());
+}
+
+// ---------------------------------------------------------------------
+// ムーブ後の状態（回帰テスト）: ムーブ元は空になり、そのまま再利用できる
+// ---------------------------------------------------------------------
+namespace {
+auto make_filled_buffer(std::size_t n, std::byte value)
+    -> maboroutu::memory_data_buffer {
+   maboroutu::memory_data_buffer buf;
+   std::vector<std::byte> data(n, value);
+   auto appended =
+       buf.append(std::span<std::byte const>(data.data(), data.size()));
+   EXPECT_TRUE(appended.has_value());
+   return buf;
+}
+} // namespace
+
+TEST(MaboroutuMemoryDataBuffer, MoveConstructedSourceBecomesEmptyAndReusable) {
+   auto src = make_filled_buffer(3, std::byte{0x5A});
+   maboroutu::memory_data_buffer dst(std::move(src));
+
+   EXPECT_EQ(*dst.size(), 3u);
+   auto dst_read = dst.read(maboroutu::region{.offset = 0, .size = 3});
+   ASSERT_TRUE(dst_read.has_value());
+   EXPECT_EQ(dst_read->value[2], std::byte{0x5A});
+
+   EXPECT_EQ(*src.size(), 0u);
+   auto src_read = src.read(maboroutu::region{.offset = 0, .size = 1});
+   ASSERT_FALSE(src_read.has_value());
+   EXPECT_EQ(src_read.error().code(), ds_code_type::out_of_range);
+
+   std::array<std::byte, 2> data{std::byte{1}, std::byte{2}};
+   auto appended =
+       src.append(std::span<std::byte const>(data.data(), data.size()));
+   ASSERT_TRUE(appended.has_value());
+   EXPECT_EQ(appended->offset, 0u);
+   EXPECT_EQ(*src.size(), 2u);
+   EXPECT_EQ(src.read(*appended)->value[1], std::byte{2});
+}
+
+TEST(MaboroutuMemoryDataBuffer, MoveAssignedSourceBecomesEmptyAndReusable) {
+   auto src = make_filled_buffer(3, std::byte{0x5A});
+   auto dst = make_filled_buffer(100, std::byte{0x11});
+   dst = std::move(src);
+
+   EXPECT_EQ(*dst.size(), 3u);
+   auto dst_read = dst.read(maboroutu::region{.offset = 0, .size = 3});
+   ASSERT_TRUE(dst_read.has_value());
+   EXPECT_EQ(dst_read->value[0], std::byte{0x5A});
+   EXPECT_FALSE(
+       dst.read(maboroutu::region{.offset = 0, .size = 4}).has_value());
+
+   EXPECT_EQ(*src.size(), 0u);
+   EXPECT_FALSE(
+       src.read(maboroutu::region{.offset = 0, .size = 1}).has_value());
 }
 
 } // namespace
