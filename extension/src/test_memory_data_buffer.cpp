@@ -270,8 +270,8 @@ TEST(MaboroutuMemoryDataBuffer, AppendAndGrowWithSizeOverflowFail) {
 } // namespace
 
 TEST(MaboroutuMemoryDataBuffer, CopyAssignmentToSmallerBufferCopiesContent) {
-   auto const src = MakeFilledBuffer(3, std::byte{0x5A});
-   auto dst = MakeFilledBuffer(100, std::byte{0x11});
+   auto const src = make_filled_buffer(3, std::byte{0x5A});
+   auto dst = make_filled_buffer(100, std::byte{0x11});
    dst = src;
 
    EXPECT_EQ(*dst.size(), 3u);
@@ -282,7 +282,7 @@ TEST(MaboroutuMemoryDataBuffer, CopyAssignmentToSmallerBufferCopiesContent) {
 }
 
 TEST(MaboroutuMemoryDataBuffer, CopyAssignmentToSelfKeepsContent) {
-   auto buf = MakeFilledBuffer(70, std::byte{0x33});
+   auto buf = make_filled_buffer(70, std::byte{0x33});
    auto &alias = buf;
    buf = alias;
 
