@@ -29,33 +29,6 @@ name: maboroutu GTest verification
 #     バージョン番号をハードコードしたVSジェネレータ名では検出できない）。
 #     ilammy/msvc-dev-cmd + Ninja ジェネレータへ変更し、具体的な
 #     Visual Studioバージョンに依存しないようにした。
-#   - MABOROUTU_SOURCE_DIR で指定したローカルチェックアウトを使う場合、
-#     以下12件の実装バグ（GTestプロジェクト側で発見・提示した最小修正）が
-#     適用されている前提。詳細は本リポジトリ付属のバグ報告
-#     (README.md もしくは会話ログ本文) を参照。
-#     1. core/src/extension_store.cppm: local_typeid::cmp<T>() の return文欠落
-#     2. core/src/extension_store.cppm: value_type::size() の非static呼び出し
-#     3. core/src/extension_store.cppm: transform_each が visit_each のまま
-#        (かつ制約不足) で多重定義・呼び出し曖昧
-#     4. core/src/extension_store.cppm: alt_t::element_type のtypename欠落
-#     5. core/src/sequential_source.cppm: sequential_source_handle /
-#        writable_sequential_source_handle の export欠落
-#     6. CMakeLists.txt (root): WORKSPACE_NAME が ${CMAKE_PROJECT_NAME} 由来
-#        になっており、他プロジェクトから add_subdirectory/FetchContent
-#        されると別名になってしまう
-#     7. core/src/binary_convert.cppm: std::unexpected(bytes.error()) が
-#        lvalueからのコピーになってしまっている(move-only型のため必要な
-#        std::move漏れ、6箇所)
-#     8. core/src/sequential_view.cppm: read() の `return *result;` も同様の
-#        move漏れ
-#     9. extension/src/stream_data_source.cppm: 同様のmove漏れ(4箇所)
-#     10. core/src/core.cppm: contains_duplicate_t の部分特殊化への
-#        export重複付与(GCC15で検出)
-#     11. extension/src/console.cppm: std::formatter<command_hander> の
-#        完全特殊化への export重複付与(GCC15で検出)
-#     12. extension/src/source_location_format.cppm: 11.と同一パターン
-#   自分のフォーク・ブランチでこれらを未修正のまま本ワークフローを走らせる
-#   場合、core/extension のビルドがこの時点で失敗する。
 # =============================================================================
 on:
    push:

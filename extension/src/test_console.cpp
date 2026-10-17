@@ -8,7 +8,7 @@
 // 実装か）は不明である。
 //
 // NOTE（検証済みの環境依存の制約）: console.cppm はexport moduleの中で
-// `export template <> struct std::formatter<command_hander> ...`
+// `export template <> struct std::formatter<command_handler> ...`
 // という std::formatter の明示的特殊化をexportしている。Clang 18
 // (-std=c++23 -stdlib=libc++) で実機検証したところ、この特殊化は
 // `import maboroutu.console;` した別の翻訳単位からは実際には到達不能で
@@ -34,18 +34,18 @@ namespace {
 using namespace std::string_view_literals;
 
 TEST(MaboroutuConsole, RunDispatchesToRegisteredCommandWithSubspan) {
-   maboroutu::command_hander::value_type commands;
+   maboroutu::command_handler::value_type commands;
    commands["hello"] = {
-       .function = [](maboroutu::command_hander &,
-                      maboroutu::command_hander::args_type args) {
+       .function = [](maboroutu::command_handler &,
+                      maboroutu::command_handler::args_type args) {
           return static_cast<int>(args.size());
        },
        .description = "say hello",
    };
 
    std::vector<std::string_view> argv{"prog"sv, "hello"sv, "extra"sv};
-   maboroutu::command_hander::args_type args(argv);
-   maboroutu::command_hander handler(commands, args);
+   maboroutu::command_handler::args_type args(argv);
+   maboroutu::command_handler handler(commands, args);
 
    auto result = handler.run(args);
    ASSERT_TRUE(result.has_value());
@@ -55,20 +55,20 @@ TEST(MaboroutuConsole, RunDispatchesToRegisteredCommandWithSubspan) {
 }
 
 TEST(MaboroutuConsole, RunReturnsNulloptForUnknownCommand) {
-   maboroutu::command_hander::value_type commands;
+   maboroutu::command_handler::value_type commands;
    std::vector<std::string_view> argv{"prog"sv, "unknown"sv};
-   maboroutu::command_hander::args_type args(argv);
-   maboroutu::command_hander handler(commands, args);
+   maboroutu::command_handler::args_type args(argv);
+   maboroutu::command_handler handler(commands, args);
 
    EXPECT_FALSE(handler.run(args).has_value());
 }
 
 TEST(MaboroutuConsole, RunSkipsLeadingFlagArguments) {
-   maboroutu::command_hander::value_type commands;
+   maboroutu::command_handler::value_type commands;
    bool called = false;
    commands["cmd"] = {
-       .function = [&called](maboroutu::command_hander &,
-                             maboroutu::command_hander::args_type) {
+       .function = [&called](maboroutu::command_handler &,
+                             maboroutu::command_handler::args_type) {
           called = true;
           return 0;
        },
@@ -76,8 +76,8 @@ TEST(MaboroutuConsole, RunSkipsLeadingFlagArguments) {
    };
 
    std::vector<std::string_view> argv{"prog"sv, "-v"sv, "cmd"sv};
-   maboroutu::command_hander::args_type args(argv);
-   maboroutu::command_hander handler(commands, args);
+   maboroutu::command_handler::args_type args(argv);
+   maboroutu::command_handler handler(commands, args);
 
    auto result = handler.run(args);
    ASSERT_TRUE(result.has_value());

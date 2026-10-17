@@ -10,7 +10,7 @@
 // で実機検証したところ、`import maboroutu.source_location_format;` した
 // 別の翻訳単位から `std::format("{}", loc)` を呼び出すと
 // 「the supplied type is not formattable」というコンパイルエラーになる
-// ことを確認した（test_console.cpp の command_hander 用formatterと同一の
+// ことを確認した（test_console.cpp の command_handler 用formatterと同一の
 // 制約。exportの有無や特殊化の宣言位置を変えても再現する最小再現例で
 // 確認済み）。
 //
