@@ -27,11 +27,15 @@ cmake_minimum_required(VERSION 3.28)
 #   │   ├ test_sequential_view.cpp
 #   │   ├ test_extension_store.cpp
 #   │   └ test_io_pattern.cpp
-#   └ extension/
+#   ├ extension/
+#   │ └ src/
+#   │   ├ test_slot_map.cpp
+#   │   ├ test_keyed_slot_map.cpp
+#   │   ├ test_stream_data_source.cpp
+#   │   ├ test_memory_data_buffer.cpp
+#   │   └ test_binary_layout_handle.cpp
+#   └ appkit/                 (maboroutu-appkit。別リポジトリで提供される)
 #     └ src/
-#       ├ test_slot_map.cpp
-#       ├ test_keyed_slot_map.cpp
-#       ├ test_stream_data_source.cpp
 #       ├ test_console.cpp
 #       └ test_source_location_format.cpp
 # =============================================================================
@@ -71,9 +75,15 @@ set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 
 option(MABOROUTU_ENABLE_EXTENSION
    "Build/verify maboroutu_extension module tests (slot_map, keyed_slot_map, \
-stream_data_source, console, source_location_format). Mirrors the library's \
-own MABOROUTU_ENABLE_EXTENSION option; when OFF, the extension/ test \
+stream_data_source, memory_data_buffer, binary_layout_handle). Mirrors the \
+library's own MABOROUTU_ENABLE_EXTENSION option; when OFF, the extension/ test \
 directory is skipped entirely."
+   ON)
+
+option(MABOROUTU_ENABLE_APPKIT_TESTS
+   "Fetch maboroutu-appkit and build/verify its module tests (console, \
+source_location_format). When OFF, the appkit/ test directory is skipped \
+and maboroutu-appkit is not fetched."
    ON)
 
 # -----------------------------------------------------------------------
@@ -118,6 +128,28 @@ endif()
 # ビルド構成（extension サブディレクトリを含めるか）にもそのまま伝播する。
 FetchContent_MakeAvailable(maboroutu)
 
+# maboroutu-appkit（console・source_location_format）。maboroutu 本体とは
+# 独立したリポジトリであり、標準ライブラリのみに依存する。
+if(MABOROUTU_ENABLE_APPKIT_TESTS)
+   set(MABOROUTU_APPKIT_SOURCE_DIR "" CACHE PATH
+      "Path to an existing local checkout of maboroutu-appkit. If set, \
+FetchContent uses this directory directly instead of cloning over the network.")
+   set(MABOROUTU_APPKIT_GIT_REPOSITORY
+      "https://github.com/Eigen-0x41/maboroutu-appkit.git" CACHE STRING
+      "Git URL of the maboroutu-appkit repository under test.")
+   set(MABOROUTU_APPKIT_GIT_TAG "main" CACHE STRING
+      "Git branch/tag/commit of maboroutu-appkit to check out and test.")
+   if(MABOROUTU_APPKIT_SOURCE_DIR)
+      FetchContent_Declare(maboroutu_appkit
+         SOURCE_DIR "${MABOROUTU_APPKIT_SOURCE_DIR}")
+   else()
+      FetchContent_Declare(maboroutu_appkit
+         GIT_REPOSITORY "${MABOROUTU_APPKIT_GIT_REPOSITORY}"
+         GIT_TAG        "${MABOROUTU_APPKIT_GIT_TAG}")
+   endif()
+   FetchContent_MakeAvailable(maboroutu_appkit)
+endif()
+
 # -----------------------------------------------------------------------
 # 2. GoogleTest の取得
 # -----------------------------------------------------------------------
@@ -137,4 +169,7 @@ enable_testing()
 add_subdirectory(core)
 if(MABOROUTU_ENABLE_EXTENSION)
    add_subdirectory(extension)
+endif()
+if(MABOROUTU_ENABLE_APPKIT_TESTS)
+   add_subdirectory(appkit)
 endif()

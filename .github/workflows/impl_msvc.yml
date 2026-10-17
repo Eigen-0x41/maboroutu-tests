@@ -25,6 +25,16 @@ on:
             type: string
             default: ""
 
+         appkit_repository:
+            required: false
+            type: string
+            default: ""
+
+         appkit_ref:
+            required: false
+            type: string
+            default: ""
+
          # 本体リポジトリ側のワークフローから呼び出す場合に指定する。
          # reusable workflowの actions/checkout は既定で呼び出し元
          # （本体リポジトリ）を取得するため、テスト側を明示する。
@@ -64,6 +74,8 @@ jobs:
               cmake -S . -B build -G "${{ matrix.env.version }}"
               -DMABOROUTU_GIT_REPOSITORY="${{ inputs.library_repository || vars.MABOROUTU_GIT_REPOSITORY || 'https://github.com/Eigen-0x41/maboroutu.git' }}"
               -DMABOROUTU_GIT_TAG="${{ inputs.library_ref || vars.MABOROUTU_GIT_TAG || 'main' }}"
+              -DMABOROUTU_APPKIT_GIT_REPOSITORY="${{ inputs.appkit_repository || vars.MABOROUTU_APPKIT_GIT_REPOSITORY || 'https://github.com/Eigen-0x41/maboroutu-appkit.git' }}"
+              -DMABOROUTU_APPKIT_GIT_TAG="${{ inputs.appkit_ref || vars.MABOROUTU_APPKIT_GIT_TAG || 'main' }}"
 
          - name: Build
            working-directory: ${{ inputs.project_directory }}

@@ -83,6 +83,18 @@ on:
             type: string
             default: ""
 
+         appkit_repository:
+            description: "maboroutu-appkit repository URL (default: repository variable MABOROUTU_APPKIT_GIT_REPOSITORY)"
+            required: false
+            type: string
+            default: ""
+
+         appkit_ref:
+            description: "maboroutu-appkit branch/tag/commit (default: repository variable MABOROUTU_APPKIT_GIT_TAG, or main)"
+            required: false
+            type: string
+            default: ""
+
 # 同一ref上の古い実行は新しい実行で置き換える。
 concurrency:
    group: ${{ github.workflow }}-${{ github.ref }}
@@ -109,6 +121,8 @@ jobs:
          build_type: ${{ inputs.build_type || 'Both' }}
          library_repository: ${{ inputs.library_repository }}
          library_ref: ${{ inputs.library_ref }}
+         appkit_repository: ${{ inputs.appkit_repository }}
+         appkit_ref: ${{ inputs.appkit_ref }}
 
    msvc:
       if: ${{ github.event_name != 'workflow_dispatch' || inputs.compiler == 'all' || inputs.compiler == 'msvc' }}
@@ -123,6 +137,8 @@ jobs:
          build_type: ${{ inputs.build_type || 'Both' }}
          library_repository: ${{ inputs.library_repository }}
          library_ref: ${{ inputs.library_ref }}
+         appkit_repository: ${{ inputs.appkit_repository }}
+         appkit_ref: ${{ inputs.appkit_ref }}
 
    # サニタイザ（ASan + UBSan）。結果は他のジョブとは別のチェックとして表示される。
    # error/* は終了経路（abort/terminate）の検証が目的のため対象外。
@@ -132,6 +148,8 @@ jobs:
       with:
          library_repository: ${{ inputs.library_repository }}
          library_ref: ${{ inputs.library_ref }}
+         appkit_repository: ${{ inputs.appkit_repository }}
+         appkit_ref: ${{ inputs.appkit_ref }}
 
    gcc:
       if: ${{ github.event_name == 'workflow_dispatch' && inputs.compiler == 'gcc' }}
@@ -146,3 +164,5 @@ jobs:
          build_type: ${{ inputs.build_type }}
          library_repository: ${{ inputs.library_repository }}
          library_ref: ${{ inputs.library_ref }}
+         appkit_repository: ${{ inputs.appkit_repository }}
+         appkit_ref: ${{ inputs.appkit_ref }}

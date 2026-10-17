@@ -13,6 +13,8 @@
 !/core/*
 !/extension/
 !/extension/*
+!/appkit/
+!/appkit/*
 !/error/
 !/error/*
 
