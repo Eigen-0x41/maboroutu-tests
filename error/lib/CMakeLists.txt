@@ -11,8 +11,8 @@ project(maboroutu_test_error_impl
     VERSION 0.0.0.0
     # COMPAT_VERSION 0.0.0.0
     # SPDX_LICENSE  MIT
-    DESCRIPTION "TODO: ADD DESCRIPTION"
-    HOMEPAGE_URL ""
+    DESCRIPTION "Helper module that calls maboroutu::enter_fatal for the error tests."
+    HOMEPAGE_URL "https://github.com/Eigen-0x41/maboroutu-tests"
     LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)

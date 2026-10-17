@@ -4,8 +4,8 @@ project(maboroutu_test_error_abort
     VERSION 0.0.0.0
     # COMPAT_VERSION 0.0.0.0
     # SPDX_LICENSE  MIT
-    DESCRIPTION "TODO: ADD DESCRIPTION"
-    HOMEPAGE_URL ""
+    DESCRIPTION "Tests for maboroutu::enter_fatal with exceptions disabled (std::abort)."
+    HOMEPAGE_URL "https://github.com/Eigen-0x41/maboroutu-tests"
     LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
