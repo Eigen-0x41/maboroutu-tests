@@ -1,25 +1,5 @@
-// mylib.console (maboroutu.console) のテスト。
-//
-// NOTE（検証結果・要確認）: library_spec.md には console
-// というコンポーネントの記載が見当たらない。アップロードされた実装には
-// core/src ではなく extension/src 配下の maboroutu.console として実在する
-// ため、本テストは実装のexport済みシグネチャを一次情報として作成したが、
-// 仕様書上の正式な位置づけ（coreかextensionか、あるいは仕様外のツール
-// 実装か）は不明である。
-//
-// NOTE（検証済みの環境依存の制約）: console.cppm はexport moduleの中で
-// `export template <> struct std::formatter<command_handler> ...`
-// という std::formatter の明示的特殊化をexportしている。Clang 18
-// (-std=c++23 -stdlib=libc++) で実機検証したところ、この特殊化は
-// `import maboroutu.console;` した別の翻訳単位からは実際には到達不能で
-// あり、`std::format("{}", handler)` を呼び出すと
-// 「the supplied type is not formattable」というコンパイルエラーになる
-// ことを確認した（`export` の有無・特殊化を module purview 内か
-// グローバルモジュールフラグメント直後かに関わらず再現。最小再現例で
-// 確認済み）。これはstd::formatter特殊化のモジュール越しの到達可能性に
-// 関するClang/libc++側の制約である可能性が高く、GCC/libstdc++でも
-// 同様の制約があるかは未検証。この制約が解消されるまで、本ファイルでは
-// std::format(handler)を用いた検証を行わない（run()の動作検証のみ行う）。
+// maboroutu.console のテスト。
+#include <format>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -92,6 +72,24 @@ TEST(MaboroutuConsole, MakeArgsWrapWrapsArgcArgv) {
    ASSERT_EQ(wrapped.size(), 2u);
    EXPECT_EQ(wrapped[0], "prog");
    EXPECT_EQ(wrapped[1], "foo");
+}
+
+TEST(MaboroutuConsole, FormatterListsCommandNamesAndFirstDescriptionLine) {
+   maboroutu::command_handler::value_type commands;
+   commands["hello"] = {
+       .function = [](maboroutu::command_handler &,
+                      maboroutu::command_handler::args_type) { return 0; },
+       .description = "say hello\nsecond line",
+   };
+
+   std::vector<std::string_view> argv{"prog"sv};
+   maboroutu::command_handler::args_type args(argv);
+   maboroutu::command_handler handler(commands, args);
+
+   auto const text = std::format("{}", handler);
+   EXPECT_NE(text.find("commands"), std::string::npos);
+   EXPECT_NE(text.find("hello : say hello"), std::string::npos);
+   EXPECT_NE(text.find("second line"), std::string::npos);
 }
 
 } // namespace
