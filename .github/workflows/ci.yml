@@ -101,7 +101,7 @@ concurrency:
 permissions:
    contents: read
 
-# push / pull_request では inputs が空になるため、以下の式で既定値へ
+# pull_request では inputs が空になるため、以下の式で既定値へ
 # フォールバックする（project_directory: 全て、build_type: Both）。
 # GCCは手動実行（workflow_dispatch）でcompilerにgccを選んだ場合のみ実行する
 # （現状は全バージョンでビルド不可のため、常時実行すると無駄な赤になる）。
