@@ -31,8 +31,6 @@ name: maboroutu GTest verification
 #     Visual Studioバージョンに依存しないようにした。
 # =============================================================================
 on:
-   push:
-      branches: [main]
    pull_request:
       branches: [main]
    workflow_dispatch:
