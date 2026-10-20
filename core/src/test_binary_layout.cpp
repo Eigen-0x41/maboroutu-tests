@@ -90,6 +90,15 @@ class memory_buffer {
       std::memcpy(out.value.get(), _data.data() + r.offset, r.size);
       return out;
    }
+   [[nodiscard]] auto read_into(maboroutu::region r, std::span<std::byte> dst)
+       -> result_type<void> {
+      if (r.offset + r.size > _data.size()) {
+         return std::unexpected(
+             maboroutu::error<ds_code_type>(ds_code_type::out_of_range));
+      }
+      std::memcpy(dst.data(), _data.data() + r.offset, r.size);
+      return {};
+   }
    auto write(maboroutu::region r, std::span<std::byte const> data)
        -> result_type<void> {
       if (r.offset + r.size > _data.size()) {

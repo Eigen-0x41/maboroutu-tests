@@ -144,3 +144,29 @@ TEST(MaboroutuStreamWritableDataSource, WriteThenReadRoundTrip) {
 }
 
 } // namespace
+
+TEST(MaboroutuStreamDataSource, ReadIntoReadsRegionIntoPrefixOfDst) {
+   maboroutu::stream_data_source<std::istringstream> src(
+       std::string("hello world"));
+   std::array<std::byte, 8> dst{};
+   auto result = src.read_into(maboroutu::region{.offset = 6, .size = 5},
+                               std::span<std::byte>(dst));
+   ASSERT_TRUE(result.has_value());
+   EXPECT_EQ(static_cast<char>(dst[0]), 'w');
+   EXPECT_EQ(static_cast<char>(dst[4]), 'd');
+   EXPECT_EQ(dst[5], std::byte{0});
+}
+
+TEST(MaboroutuStreamDataSource, ReadIntoBeyondEndFailsAndReadingContinues) {
+   maboroutu::stream_data_source<std::istringstream> src(
+       std::string("hello world"));
+   std::array<std::byte, 64> dst{};
+   auto failed = src.read_into(maboroutu::region{.offset = 6, .size = 64},
+                               std::span<std::byte>(dst));
+   ASSERT_FALSE(failed.has_value());
+   EXPECT_EQ(failed.error().code(), ds_code_type::out_of_range);
+   auto ok = src.read_into(maboroutu::region{.offset = 0, .size = 5},
+                           std::span<std::byte>(dst));
+   ASSERT_TRUE(ok.has_value());
+   EXPECT_EQ(static_cast<char>(dst[0]), 'h');
+}

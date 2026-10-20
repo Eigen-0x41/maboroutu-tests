@@ -380,3 +380,14 @@ TEST(MaboroutuDataBufferErrc, EnumeratorsAreReachableByName) {
    EXPECT_NE(maboroutu::errc::error_message(code::out_of_range),
              maboroutu::errc::error_message(code::invalid_operation));
 }
+
+TEST(MaboroutuDataBuffer, NullStubReadIntoOnlyEmptyRegion) {
+   maboroutu::null_data_buffer buf;
+   std::array<std::byte, 4> dst{};
+   EXPECT_TRUE(buf.read_into(maboroutu::region{.offset = 0, .size = 0},
+                             std::span<std::byte>(dst))
+                   .has_value());
+   EXPECT_FALSE(buf.read_into(maboroutu::region{.offset = 0, .size = 1},
+                              std::span<std::byte>(dst))
+                    .has_value());
+}

@@ -51,6 +51,15 @@ class memory_data_source {
       std::memcpy(out.value.get(), _data.data() + r.offset, r.size);
       return out;
    }
+   [[nodiscard]] auto read_into(maboroutu::region r, std::span<std::byte> dst)
+       -> result_type<void> {
+      if (r.offset + r.size > _data.size()) {
+         return std::unexpected(
+             maboroutu::error<ds_code_type>(ds_code_type::out_of_range));
+      }
+      std::memcpy(dst.data(), _data.data() + r.offset, r.size);
+      return {};
+   }
    auto write(maboroutu::region r, std::span<std::byte const> data)
        -> result_type<void> {
       if (r.offset + r.size > _data.size()) {
@@ -173,3 +182,36 @@ TEST(MaboroutuSequentialView, InitialCountCanBeSpecifiedViaConstructor) {
 }
 
 } // namespace
+
+TEST(MaboroutuSequentialView, ReadIntoAdvancesCountOnlyOnSuccess) {
+   memory_data_source src(6);
+   maboroutu::sequential_view view{src};
+   std::array<std::byte, 4> dst{};
+
+   ASSERT_TRUE(view.read_into(std::span<std::byte>(dst)).has_value());
+   EXPECT_EQ(view.count(), 4u);
+   EXPECT_FALSE(view.read_into(std::span<std::byte>(dst)).has_value());
+   EXPECT_EQ(view.count(), 4u);
+}
+
+TEST(MaboroutuSequentialView, ReadValueAndArrayThroughViewDecodeEndian) {
+   memory_data_source src(8);
+   std::array<std::byte, 8> raw{std::byte{0x12}, std::byte{0x34},
+                                std::byte{0x56}, std::byte{0x78},
+                                std::byte{0x00}, std::byte{0x01},
+                                std::byte{0x00}, std::byte{0x02}};
+   ASSERT_TRUE(src.write(maboroutu::region{.offset = 0, .size = 8},
+                         std::span<std::byte const>(raw))
+                   .has_value());
+   maboroutu::sequential_view view{src};
+   auto head =
+       maboroutu::read_value<maboroutu::endian::big, std::uint32_t>(view);
+   ASSERT_TRUE(head.has_value());
+   EXPECT_EQ(*head, 0x12345678u);
+   auto tail = maboroutu::read_array<maboroutu::endian::big, std::uint16_t, 2>(
+       view);
+   ASSERT_TRUE(tail.has_value());
+   EXPECT_EQ((*tail)[0], 1u);
+   EXPECT_EQ((*tail)[1], 2u);
+   EXPECT_EQ(view.count(), 8u);
+}

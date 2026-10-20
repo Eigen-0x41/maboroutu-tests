@@ -6,6 +6,7 @@
 // errc::data_source という名前を一切綴らずにエラー値を構築している。
 // これは同注記の主張（「外部からは decltype(...) 経由でCode型・列挙子へ
 // 到達可能」）が実際に機能することを示す実地検証も兼ねる。
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <expected>
@@ -135,6 +136,12 @@ struct move_only_data_source {
           .size = r.size,
       };
    }
+   [[nodiscard]] auto read_into(maboroutu::region r,
+                                std::span<std::byte> dst) const
+       -> result_type<void> {
+      std::fill_n(dst.data(), r.size, std::byte{0});
+      return {};
+   }
 };
 static_assert(maboroutu::data_source<move_only_data_source>);
 static_assert(!std::is_copy_constructible_v<move_only_data_source>);
@@ -176,8 +183,58 @@ struct bounded_fake_source {
           .size = r.size,
       };
    }
+   [[nodiscard]] auto read_into(maboroutu::region r,
+                                std::span<std::byte> dst) const
+       -> result_type<void> {
+      if (r.offset + r.size > capacity) {
+         return std::unexpected(maboroutu::error<data_source_code_type>(
+             data_source_code_type::out_of_range));
+      }
+      std::fill_n(dst.data(), r.size, std::byte{0x5a});
+      return {};
+   }
 };
 static_assert(maboroutu::data_source<bounded_fake_source>);
+
+TEST(MaboroutuDataSource, ReadIntoWritesOnlyRequestedPrefix) {
+   bounded_fake_source src{.capacity = 16};
+   std::array<std::byte, 8> dst{};
+   auto result = src.read_into(maboroutu::region{.offset = 0, .size = 4},
+                               std::span<std::byte>(dst));
+   ASSERT_TRUE(result.has_value());
+   EXPECT_EQ(dst[3], std::byte{0x5a});
+   EXPECT_EQ(dst[4], std::byte{0});
+}
+
+TEST(MaboroutuDataSource, ReadIntoBeyondEndFailsAndPropagatesThroughHandle) {
+   maboroutu::data_source_handle handle{bounded_fake_source{.capacity = 4}};
+   std::array<std::byte, 8> dst{};
+   auto result = handle.read_into(maboroutu::region{.offset = 0, .size = 8},
+                                  std::span<std::byte>(dst));
+   ASSERT_FALSE(result.has_value());
+   EXPECT_EQ(result.error().code(), data_source_code_type::out_of_range);
+   auto ok = handle.read_into(maboroutu::region{.offset = 0, .size = 4},
+                              std::span<std::byte>(dst));
+   EXPECT_TRUE(ok.has_value());
+   EXPECT_EQ(dst[0], std::byte{0x5a});
+}
+
+template <class Source> void expect_null_read_into_only_empty_region() {
+   Source src;
+   std::array<std::byte, 4> dst{};
+   EXPECT_TRUE(src.read_into(maboroutu::region{.offset = 0, .size = 0},
+                             std::span<std::byte>(dst))
+                   .has_value());
+   EXPECT_FALSE(src.read_into(maboroutu::region{.offset = 0, .size = 1},
+                              std::span<std::byte>(dst))
+                    .has_value());
+}
+
+TEST(MaboroutuDataSource, NullSourcesReadIntoOnlyEmptyRegion) {
+   expect_null_read_into_only_empty_region<maboroutu::null_data_source>();
+   expect_null_read_into_only_empty_region<
+       maboroutu::null_writable_data_source>();
+}
 
 TEST(MaboroutuDataSource, ReadWithinBoundsSucceeds) {
    bounded_fake_source src{.capacity = 16};

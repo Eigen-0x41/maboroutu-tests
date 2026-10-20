@@ -383,3 +383,25 @@ TEST(MaboroutuMemoryDataBuffer, CopyAssignmentToSelfKeepsContent) {
    ASSERT_TRUE(read.has_value());
    EXPECT_EQ(read->value[69], std::byte{0x33});
 }
+
+TEST(MaboroutuMemoryDataBuffer, ReadIntoMatchesReadAndKeepsBytesBeyondRequest) {
+   auto buf = make_filled_buffer(200, std::byte{0x42});
+   std::array<std::byte, 150> dst{};
+   dst.fill(std::byte{0xEE});
+   auto result = buf.read_into(maboroutu::region{.offset = 10, .size = 140},
+                               std::span<std::byte>(dst));
+   ASSERT_TRUE(result.has_value());
+   EXPECT_EQ(dst[0], std::byte{0x42});
+   EXPECT_EQ(dst[139], std::byte{0x42});
+   EXPECT_EQ(dst[140], std::byte{0xEE});
+}
+
+TEST(MaboroutuMemoryDataBuffer, ReadIntoBeyondSizeFailsWithoutChangingDst) {
+   auto buf = make_filled_buffer(8, std::byte{0x42});
+   std::array<std::byte, 16> dst{};
+   dst.fill(std::byte{0xEE});
+   auto result = buf.read_into(maboroutu::region{.offset = 4, .size = 8},
+                               std::span<std::byte>(dst));
+   ASSERT_FALSE(result.has_value());
+   EXPECT_EQ(dst[0], std::byte{0xEE});
+}
