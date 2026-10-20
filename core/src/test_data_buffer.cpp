@@ -33,9 +33,10 @@ TEST(MaboroutuDataBuffer, InheritsWritableDataSourceBehaviour) {
    ASSERT_TRUE(size_result.has_value());
    EXPECT_EQ(*size_result, 0u);
 
-   auto read_result = buf.read(maboroutu::region{.offset = 0, .size = 4});
-   ASSERT_TRUE(read_result.has_value());
-   EXPECT_EQ(read_result->size, 4u);
+   auto empty_read = buf.read(maboroutu::region{.offset = 0, .size = 0});
+   ASSERT_TRUE(empty_read.has_value());
+   EXPECT_EQ(empty_read->size, 0u);
+   EXPECT_FALSE(buf.read(maboroutu::region{.offset = 0, .size = 4}).has_value());
 
    std::array<std::byte, 2> data{};
    auto write_result =

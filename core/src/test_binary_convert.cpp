@@ -3,9 +3,9 @@
 //
 // 6章の検証方針は「(1) 各種数値型・Endian指定の往復変換（write→readで元の値と
 // 一致すること）」を要求している。しかし null_data_source /
-// null_writable_data_source は書き込みを実際には保持せず、読み込みは要求
-// サイズ分のゼロ埋めバッファを返すだけのスタブ（posix /dev/null の模倣）で
-// あるため、これらだけでは往復の忠実性を検証できない。
+// null_writable_data_source は書き込みを実際には保持せず、読み込みは
+// 空の領域にのみ成功するスタブ（posix /dev/null の模倣）であるため、
+// これらだけでは往復の忠実性を検証できない。
 //
 // mylib.memory_data_source（library_spec.md「on the horizon」に記載の通り、
 // v1.33時点で未実装）が無いため、本テストでは検証専用の最小限の

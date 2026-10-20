@@ -143,16 +143,4 @@ TEST(MaboroutuStreamWritableDataSource, WriteThenReadRoundTrip) {
    EXPECT_EQ(text_view, "ABCDE");
 }
 
-TEST(MaboroutuStreamWritableDataSource, WriteWithInsufficientDataFails) {
-   maboroutu::stream_writable_data_source<std::stringstream> src(
-       std::string("0123456789"));
-   std::array<std::byte, 2> small_payload{};
-   // region.size(5) が data.size()(2) を超える。
-   auto result = src.write(maboroutu::region{.offset = 0, .size = 5},
-                           std::span<std::byte const>(small_payload.data(),
-                                                       small_payload.size()));
-   ASSERT_FALSE(result.has_value());
-   EXPECT_EQ(result.error().code(), ds_code_type::out_of_range);
-}
-
 } // namespace

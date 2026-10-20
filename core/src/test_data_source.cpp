@@ -36,11 +36,27 @@ static_assert(maboroutu::data_source<maboroutu::null_writable_data_source>);
 static_assert(
     maboroutu::writable_data_source<maboroutu::null_writable_data_source>);
 
-TEST(MaboroutuDataSource, NullDataSourceReadReturnsRequestedSize) {
+TEST(MaboroutuDataSource, NullDataSourceReadOfEmptyRegionReturnsEmptyArray) {
+   maboroutu::null_data_source src;
+   auto result = src.read(maboroutu::region{.offset = 0, .size = 0});
+   ASSERT_TRUE(result.has_value());
+   EXPECT_EQ(result->size, 0u);
+   EXPECT_NE(result->value, nullptr);
+}
+
+TEST(MaboroutuDataSource, NullDataSourceReadOfNonEmptyRegionFails) {
    maboroutu::null_data_source src;
    auto result = src.read(maboroutu::region{.offset = 0, .size = 8});
-   ASSERT_TRUE(result.has_value());
-   EXPECT_EQ(result->size, 8u);
+   ASSERT_FALSE(result.has_value());
+   EXPECT_EQ(result.error().code(),
+             decltype(result.error().code())::out_of_range);
+}
+
+TEST(MaboroutuDataSource, NullWritableDataSourceReadOfNonEmptyRegionFails) {
+   maboroutu::null_writable_data_source src;
+   EXPECT_TRUE(src.read(maboroutu::region{.offset = 0, .size = 0}).has_value());
+   EXPECT_FALSE(
+       src.read(maboroutu::region{.offset = 0, .size = 1}).has_value());
 }
 
 TEST(MaboroutuDataSource, NullWritableDataSourceWriteAlwaysSucceeds) {
@@ -73,9 +89,11 @@ TEST(MaboroutuDataSource, HandleDelegatesReadAndSizeToWrappedValue) {
    ASSERT_TRUE(size_result.has_value());
    EXPECT_EQ(*size_result, 0u); // null_data_source::size() は常に0
 
-   auto read_result = handle.read(maboroutu::region{.offset = 0, .size = 5});
+   auto read_result = handle.read(maboroutu::region{.offset = 0, .size = 0});
    ASSERT_TRUE(read_result.has_value());
-   EXPECT_EQ(read_result->size, 5u);
+   EXPECT_EQ(read_result->size, 0u);
+   EXPECT_FALSE(
+       handle.read(maboroutu::region{.offset = 0, .size = 5}).has_value());
 }
 
 TEST(MaboroutuDataSource, WritableHandleDelegatesWrite) {
@@ -95,9 +113,9 @@ TEST(MaboroutuDataSource, TryCopySucceedsForCopyableConcreteType) {
    std::optional<maboroutu::data_source_handle> cloned = handle.try_copy();
    ASSERT_TRUE(cloned.has_value());
    // 複製後も独立して read() を呼べる。
-   auto result = cloned->read(maboroutu::region{.offset = 0, .size = 2});
+   auto result = cloned->read(maboroutu::region{.offset = 0, .size = 0});
    ASSERT_TRUE(result.has_value());
-   EXPECT_EQ(result->size, 2u);
+   EXPECT_EQ(result->size, 0u);
 }
 
 // move-onlyな具象型を包んだ場合、try_copy() は std::nullopt を返す。

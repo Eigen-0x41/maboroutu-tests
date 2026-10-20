@@ -71,12 +71,13 @@ static_assert(
 static_assert(maboroutu::writable_sequential_source<
               maboroutu::null_writable_sequential_source>);
 
-TEST(MaboroutuSequentialSource, NullSequentialSourceReadReturnsRequestedSize) {
+TEST(MaboroutuSequentialSource, NullSequentialSourceReadsOnlyEmptyArray) {
    maboroutu::null_sequential_source src;
    EXPECT_EQ(src.count(), 0u);
-   auto result = src.read(6);
+   auto result = src.read(0);
    ASSERT_TRUE(result.has_value());
-   EXPECT_EQ(result->size, 6u);
+   EXPECT_EQ(result->size, 0u);
+   EXPECT_FALSE(src.read(6).has_value());
 }
 
 // ---------------------------------------------------------------------
@@ -92,9 +93,8 @@ TEST(MaboroutuSequentialSource,
    maboroutu::sequential_source_handle handle{
        maboroutu::null_sequential_source{}};
    EXPECT_EQ(handle.count(), 0u);
-   auto result = handle.read(4);
-   ASSERT_TRUE(result.has_value());
-   EXPECT_EQ(result->size, 4u);
+   EXPECT_TRUE(handle.read(0).has_value());
+   EXPECT_FALSE(handle.read(4).has_value());
 }
 
 TEST(MaboroutuSequentialSource,
@@ -102,8 +102,8 @@ TEST(MaboroutuSequentialSource,
    maboroutu::writable_sequential_source_handle handle{
        maboroutu::null_writable_sequential_source{}};
    EXPECT_EQ(handle.count(), 0u);
-   auto read_result = handle.read(3);
-   ASSERT_TRUE(read_result.has_value());
+   EXPECT_TRUE(handle.read(0).has_value());
+   EXPECT_FALSE(handle.read(3).has_value());
    std::array<std::byte, 2> data{};
    auto write_result =
        handle.write(std::span<std::byte const>(data.data(), data.size()));
