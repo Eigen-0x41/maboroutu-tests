@@ -220,6 +220,27 @@ TEST(MaboroutuBinaryConvert, DataSourceVectorRoundTrip) {
    EXPECT_EQ(*read_result, original);
 }
 
+// count * sizeof(T) が桁あふれする場合は、外部入力に由来する誤りとして、
+// 例外ではなく範囲外のエラーを返す（回帰テスト）。
+TEST(MaboroutuBinaryConvert, DataSourceReadVectorWithOverflowingCountFails) {
+   memory_data_source src(16);
+   // sizeof(int) * count == 0（桁あふれ）となる count。
+   constexpr auto count = (~std::size_t{0} / sizeof(int)) + 1;
+   auto result =
+       maboroutu::read_vector<maboroutu::endian::little, int>(src, 0, count);
+   ASSERT_FALSE(result.has_value());
+   EXPECT_EQ(result.error().code(), ds_code_type::out_of_range);
+}
+
+TEST(MaboroutuBinaryConvert, SequentialReadVectorWithOverflowingCountFails) {
+   memory_sequential_source src(16);
+   constexpr auto count = (~std::size_t{0} / sizeof(int)) + 1;
+   auto result =
+       maboroutu::read_vector<maboroutu::endian::little, int>(src, count);
+   ASSERT_FALSE(result.has_value());
+   EXPECT_EQ(result.error().code(), seq_code_type::out_of_range);
+}
+
 // ---------------------------------------------------------------------
 // sequential_source経由 (v1.33追加のoffset省略オーバーロード)
 // ---------------------------------------------------------------------

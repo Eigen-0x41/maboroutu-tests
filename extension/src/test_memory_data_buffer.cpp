@@ -269,6 +269,41 @@ TEST(MaboroutuMemoryDataBuffer, AppendAndGrowWithSizeOverflowFail) {
    EXPECT_EQ(*buf.size(), data.size());
 }
 
+// 新しいサイズがSIZE_MAX付近の場合、ブロック数の算出（切り上げ）が桁あふれして、
+// 領域が確保されないまま size() だけが大きくなる不整合が起きる（回帰テスト）。
+TEST(MaboroutuMemoryDataBuffer, GrowToSizeNearSizeMaxFailsWithoutChange) {
+   maboroutu::memory_data_buffer buf;
+   std::array<std::byte, 10> data{};
+   ASSERT_TRUE(
+       buf.append(std::span<std::byte const>(data.data(), data.size()))
+           .has_value());
+
+   // size() + n == SIZE_MAX（加算自体は桁あふれしない）。
+   auto grown = buf.grow(~std::size_t{0} - data.size());
+   ASSERT_FALSE(grown.has_value());
+   EXPECT_EQ(grown.error().code(), buffer_code_type::out_of_range);
+   EXPECT_EQ(*buf.size(), data.size());
+   EXPECT_TRUE(buf.view(maboroutu::region{.offset = 0, .size = data.size()})
+                   .has_value());
+}
+
+TEST(MaboroutuMemoryDataBuffer, WriteEndingNearSizeMaxFailsWithoutChange) {
+   maboroutu::memory_data_buffer buf;
+   std::array<std::byte, 10> data{};
+   ASSERT_TRUE(
+       buf.append(std::span<std::byte const>(data.data(), data.size()))
+           .has_value());
+
+   std::array<std::byte, 5> payload{};
+   // offset + size == SIZE_MAX - 5（桁あふれはしない）。
+   auto result = buf.write(
+       maboroutu::region{.offset = ~std::size_t{0} - 10, .size = payload.size()},
+       std::span<std::byte const>(payload.data(), payload.size()));
+   ASSERT_FALSE(result.has_value());
+   EXPECT_EQ(result.error().code(), ds_code_type::out_of_range);
+   EXPECT_EQ(*buf.size(), data.size());
+}
+
 // ---------------------------------------------------------------------
 // ムーブ後の状態（回帰テスト）: ムーブ元は空になり、そのまま再利用できる
 // ---------------------------------------------------------------------
