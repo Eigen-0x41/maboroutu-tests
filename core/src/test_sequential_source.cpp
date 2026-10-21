@@ -130,6 +130,11 @@ struct decoy_size_fake_sequential_source {
           .size = n,
       };
    }
+   [[nodiscard]] auto read_into(std::size_t n, std::span<std::byte>)
+       -> result_type<void> {
+      advanced += n;
+      return {};
+   }
 };
 static_assert(maboroutu::sequential_source<decoy_size_fake_sequential_source>);
 
@@ -171,4 +176,25 @@ TEST(MaboroutuSequentialSourceErrc, EnumeratorsAreReachableByName) {
    EXPECT_FALSE(e.message().empty());
    EXPECT_NE(maboroutu::errc::error_message(code::out_of_range),
              maboroutu::errc::error_message(code::operation_failure));
+}
+
+TEST(MaboroutuSequentialSource, NullSourcesReadIntoOnlyZeroSize) {
+   std::array<std::byte, 4> dst{};
+   maboroutu::null_sequential_source a;
+   EXPECT_TRUE(a.read_into(0, std::span<std::byte>(dst)).has_value());
+   EXPECT_FALSE(a.read_into(1, std::span<std::byte>(dst)).has_value());
+   maboroutu::null_writable_sequential_source b;
+   EXPECT_TRUE(b.read_into(0, std::span<std::byte>(dst)).has_value());
+   EXPECT_FALSE(b.read_into(1, std::span<std::byte>(dst)).has_value());
+}
+
+TEST(MaboroutuSequentialSource, HandleDelegatesReadInto) {
+   std::array<std::byte, 4> dst{};
+   maboroutu::sequential_source_handle handle{decoy_size_fake_sequential_source{}};
+   ASSERT_TRUE(handle.read_into(3, std::span<std::byte>(dst)).has_value());
+   EXPECT_EQ(handle.count(), 3u);
+   maboroutu::writable_sequential_source_handle whandle{
+       maboroutu::null_writable_sequential_source{}};
+   EXPECT_TRUE(whandle.read_into(0, std::span<std::byte>(dst)).has_value());
+   EXPECT_FALSE(whandle.read_into(2, std::span<std::byte>(dst)).has_value());
 }

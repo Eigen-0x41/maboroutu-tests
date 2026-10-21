@@ -118,6 +118,16 @@ class memory_sequential_source {
       _pos += n;
       return out;
    }
+   auto read_into(std::size_t n, std::span<std::byte> dst)
+       -> result_type<void> {
+      if (_pos + n > _data.size()) {
+         return std::unexpected(
+             maboroutu::error<seq_code_type>(seq_code_type::out_of_range));
+      }
+      std::memcpy(dst.data(), _data.data() + _pos, n);
+      _pos += n;
+      return {};
+   }
    auto write(std::span<std::byte const> data) -> result_type<void> {
       if (_pos + data.size() > _data.size()) {
          _data.resize(_pos + data.size());

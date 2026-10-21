@@ -188,10 +188,14 @@ TEST(MaboroutuSequentialView, ReadIntoAdvancesCountOnlyOnSuccess) {
    maboroutu::sequential_view view{src};
    std::array<std::byte, 4> dst{};
 
-   ASSERT_TRUE(view.read_into(std::span<std::byte>(dst)).has_value());
+   ASSERT_TRUE(view.read_into(4, std::span<std::byte>(dst)).has_value());
    EXPECT_EQ(view.count(), 4u);
-   EXPECT_FALSE(view.read_into(std::span<std::byte>(dst)).has_value());
+   EXPECT_FALSE(view.read_into(4, std::span<std::byte>(dst)).has_value());
    EXPECT_EQ(view.count(), 4u);
+   // dst が size より大きくても適格。size バイトのみ進む。
+   std::array<std::byte, 8> wide{};
+   ASSERT_TRUE(view.read_into(2, std::span<std::byte>(wide)).has_value());
+   EXPECT_EQ(view.count(), 6u);
 }
 
 TEST(MaboroutuSequentialView, ReadValueAndArrayThroughViewDecodeEndian) {
