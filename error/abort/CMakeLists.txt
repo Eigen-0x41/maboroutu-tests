@@ -87,7 +87,7 @@ enable_testing()
 if(_maboroutu_expect_diag STREQUAL "1")
    add_test(NAME run_test_abort_diagnostic COMMAND ${PROJECT_NAME})
    set_tests_properties(run_test_abort_diagnostic PROPERTIES
-      PASS_REGULAR_EXPRESSION "maboroutu: fatal error \\(exceptions disabled\\): abort")
+      PASS_REGULAR_EXPRESSION "maboroutu: fatal error \\(exceptions disabled\\): abort: enter fatal\\.")
 elseif(_maboroutu_expect_diag STREQUAL "0")
    add_test(NAME run_test_abort_no_diagnostic COMMAND ${PROJECT_NAME})
    set_tests_properties(run_test_abort_no_diagnostic PROPERTIES

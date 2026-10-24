@@ -76,7 +76,7 @@ set_tests_properties(run_test_terminate PROPERTIES FAIL_REGULAR_EXPRESSION  "ABO
 if(_maboroutu_expect_diag STREQUAL "1")
    add_test(NAME run_test_terminate_diagnostic COMMAND ${PROJECT_NAME})
    set_tests_properties(run_test_terminate_diagnostic PROPERTIES
-      PASS_REGULAR_EXPRESSION "maboroutu: fatal error \\(exceptions disabled\\): terminate")
+      PASS_REGULAR_EXPRESSION "maboroutu: fatal error \\(exceptions disabled\\): terminate: enter fatal\\.")
 elseif(_maboroutu_expect_diag STREQUAL "0")
    add_test(NAME run_test_terminate_no_diagnostic COMMAND ${PROJECT_NAME})
    set_tests_properties(run_test_terminate_no_diagnostic PROPERTIES
