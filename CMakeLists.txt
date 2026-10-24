@@ -164,6 +164,42 @@ include(GoogleTest)
 enable_testing()
 
 # -----------------------------------------------------------------------
+# 2.5 ライフタイム解析（任意）
+#
+# テストコードのみに、コンパイラの解析を追加する。この位置（ライブラリと
+# GoogleTest の取得より後）で add_compile_options するため、ライブラリ本体や
+# GoogleTest には適用されない。ライブラリ本体も解析したい場合は、
+# FetchContent_MakeAvailable(maboroutu) より前へ移すこと。
+# 解析はバグの検出を補助するものであり、バグが無いことは保証しない。
+#   - Clang: -Wlifetime-safety-permissive（対応する Clang のみ。非対応の場合は
+#     警告を出して無効のままにする）
+#   - MSVC : /analyze
+# -----------------------------------------------------------------------
+option(MABOROUTU_TESTS_LIFETIME_SAFETY
+   "Enable lifetime analysis (Clang -Wlifetime-safety-permissive, MSVC /analyze) for the test code only." OFF)
+if(MABOROUTU_TESTS_LIFETIME_SAFETY)
+   if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      include(CheckCXXCompilerFlag)
+      check_cxx_compiler_flag(-Wlifetime-safety-permissive
+         MABOROUTU_COMPILER_HAS_LIFETIME_SAFETY)
+      if(MABOROUTU_COMPILER_HAS_LIFETIME_SAFETY)
+         add_compile_options(-Wlifetime-safety-permissive)
+      else()
+         message(WARNING
+            "MABOROUTU_TESTS_LIFETIME_SAFETY: this Clang "
+            "(${CMAKE_CXX_COMPILER_VERSION}) does not support "
+            "-Wlifetime-safety-permissive. The analysis is disabled.")
+      endif()
+   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+      add_compile_options(/analyze)
+   else()
+      message(WARNING
+         "MABOROUTU_TESTS_LIFETIME_SAFETY: no lifetime analysis is configured "
+         "for ${CMAKE_CXX_COMPILER_ID}.")
+   endif()
+endif()
+
+# -----------------------------------------------------------------------
 # 3. 各モジュールのテストディレクトリ
 # -----------------------------------------------------------------------
 add_subdirectory(core)
