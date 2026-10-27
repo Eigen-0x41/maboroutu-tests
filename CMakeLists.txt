@@ -87,6 +87,46 @@ and maboroutu-appkit is not fetched."
    ON)
 
 # -----------------------------------------------------------------------
+# 0. ライフタイム解析（任意）
+#
+# テストコードのみに、コンパイラの解析を追加する。この位置（ライブラリと
+# GoogleTest の取得より後）で add_compile_options するため、ライブラリ本体や
+# GoogleTest には適用されない。ライブラリ本体も解析したい場合は、
+# FetchContent_MakeAvailable(maboroutu) より前へ移すこと。
+# 解析はバグの検出を補助するものであり、バグが無いことは保証しない。
+#   - Clang: -Wlifetime-safety-permissive（対応する Clang のみ。非対応の場合は
+#     警告を出して無効のままにする）
+#   - MSVC : /analyze /analyze:plugin EspXEngine.dll（C++ Core Check は
+#            環境変数 Esp.Extensions=CppCoreCheck.dll で有効になる）
+# -----------------------------------------------------------------------
+option(MABOROUTU_TESTS_LIFETIME_SAFETY
+   "Enable lifetime analysis (Clang -Wlifetime-safety-permissive, MSVC /analyze) for the test code only." OFF)
+if(MABOROUTU_TESTS_LIFETIME_SAFETY)
+   if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      include(CheckCXXCompilerFlag)
+      check_cxx_compiler_flag(-Wlifetime-safety-permissive
+         MABOROUTU_COMPILER_HAS_LIFETIME_SAFETY)
+      if(MABOROUTU_COMPILER_HAS_LIFETIME_SAFETY)
+         add_compile_options(-Wlifetime-safety-permissive)
+      else()
+         message(WARNING
+            "MABOROUTU_TESTS_LIFETIME_SAFETY: this Clang "
+            "(${CMAKE_CXX_COMPILER_VERSION}) does not support "
+            "-Wlifetime-safety-permissive. The analysis is disabled.")
+      endif()
+   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+      # /analyze:plugin EspXEngine.dll は、C++ Core Check（環境変数
+      # Esp.Extensions に CppCoreCheck.dll を指定した場合）を有効にする。
+      # 指定が無い場合は、通常の解析のみとなる。
+      add_compile_options(/analyze /analyze:plugin EspXEngine.dll)
+   else()
+      message(WARNING
+         "MABOROUTU_TESTS_LIFETIME_SAFETY: no lifetime analysis is configured "
+         "for ${CMAKE_CXX_COMPILER_ID}.")
+   endif()
+endif()
+
+# -----------------------------------------------------------------------
 # 1. maboroutu 本体（テスト対象）の取得
 # -----------------------------------------------------------------------
 # 通常運用: FetchContent で GitHub から取得する。
@@ -162,46 +202,6 @@ FetchContent_MakeAvailable(googletest)
 
 include(GoogleTest)
 enable_testing()
-
-# -----------------------------------------------------------------------
-# 2.5 ライフタイム解析（任意）
-#
-# テストコードのみに、コンパイラの解析を追加する。この位置（ライブラリと
-# GoogleTest の取得より後）で add_compile_options するため、ライブラリ本体や
-# GoogleTest には適用されない。ライブラリ本体も解析したい場合は、
-# FetchContent_MakeAvailable(maboroutu) より前へ移すこと。
-# 解析はバグの検出を補助するものであり、バグが無いことは保証しない。
-#   - Clang: -Wlifetime-safety-permissive（対応する Clang のみ。非対応の場合は
-#     警告を出して無効のままにする）
-#   - MSVC : /analyze /analyze:plugin EspXEngine.dll（C++ Core Check は
-#            環境変数 Esp.Extensions=CppCoreCheck.dll で有効になる）
-# -----------------------------------------------------------------------
-option(MABOROUTU_TESTS_LIFETIME_SAFETY
-   "Enable lifetime analysis (Clang -Wlifetime-safety-permissive, MSVC /analyze) for the test code only." OFF)
-if(MABOROUTU_TESTS_LIFETIME_SAFETY)
-   if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-      include(CheckCXXCompilerFlag)
-      check_cxx_compiler_flag(-Wlifetime-safety-permissive
-         MABOROUTU_COMPILER_HAS_LIFETIME_SAFETY)
-      if(MABOROUTU_COMPILER_HAS_LIFETIME_SAFETY)
-         add_compile_options(-Wlifetime-safety-permissive)
-      else()
-         message(WARNING
-            "MABOROUTU_TESTS_LIFETIME_SAFETY: this Clang "
-            "(${CMAKE_CXX_COMPILER_VERSION}) does not support "
-            "-Wlifetime-safety-permissive. The analysis is disabled.")
-      endif()
-   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-      # /analyze:plugin EspXEngine.dll は、C++ Core Check（環境変数
-      # Esp.Extensions に CppCoreCheck.dll を指定した場合）を有効にする。
-      # 指定が無い場合は、通常の解析のみとなる。
-      add_compile_options(/analyze /analyze:plugin EspXEngine.dll)
-   else()
-      message(WARNING
-         "MABOROUTU_TESTS_LIFETIME_SAFETY: no lifetime analysis is configured "
-         "for ${CMAKE_CXX_COMPILER_ID}.")
-   endif()
-endif()
 
 # -----------------------------------------------------------------------
 # 3. 各モジュールのテストディレクトリ
