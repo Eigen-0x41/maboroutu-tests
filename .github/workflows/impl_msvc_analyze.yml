@@ -1,0 +1,84 @@
+name: maboroutu GTest verification (MSVC code analysis)
+
+# MSVC のコード解析（/analyze）と C++ Core Check（ライフタイム系を含む）を
+# 有効にして、テストコードをビルドし、全テストを実行する。
+# 解析の対象はテストコードのみ（CMake の MABOROUTU_TESTS_LIFETIME_SAFETY=ON）。
+# 解析はバグの検出を補助するものであり、バグが無いことは保証しない。
+#
+# NOTE: C++ Core Check は、環境変数 Esp.Extensions に CppCoreCheck.dll を指定し、
+#       /analyze:plugin EspXEngine.dll を併用して有効にする（CMake 側で指定）。
+#       この構成は、MSVC 実機では未検証である。
+# NOTE: 結果が安定するまで、検出・構成の誤りでCI全体を失敗させないよう、
+#       ジョブを continue-on-error としている。安定したら外すこと。
+
+on:
+   workflow_call:
+      inputs:
+         library_repository:
+            required: false
+            type: string
+            default: ""
+
+         library_ref:
+            required: false
+            type: string
+            default: ""
+
+         appkit_repository:
+            required: false
+            type: string
+            default: ""
+
+         appkit_ref:
+            required: false
+            type: string
+            default: ""
+
+         # 本体リポジトリ側のワークフローから呼び出す場合に指定する。
+         tests_repository:
+            required: false
+            type: string
+            default: ""
+
+         tests_ref:
+            required: false
+            type: string
+            default: ""
+
+jobs:
+   test:
+      continue-on-error: true
+      strategy:
+         fail-fast: false
+         matrix:
+            env:
+               - os: windows-2025
+                 version: "Visual Studio 18 2026"
+               - os: windows-2022
+                 version: "Visual Studio 17 2022"
+      runs-on: ${{ matrix.env.os }}
+      steps:
+         - uses: actions/checkout@v4
+           with:
+              repository: ${{ inputs.tests_repository || github.repository }}
+              ref: ${{ inputs.tests_ref }}
+
+         - name: Configure
+           run: >
+              cmake -S . -B build -G "${{ matrix.env.version }}"
+              -DMABOROUTU_TESTS_LIFETIME_SAFETY=ON
+              -DMABOROUTU_GIT_REPOSITORY="${{ inputs.library_repository || vars.MABOROUTU_GIT_REPOSITORY || 'https://github.com/Eigen-0x41/maboroutu.git' }}"
+              -DMABOROUTU_GIT_TAG="${{ inputs.library_ref || vars.MABOROUTU_GIT_TAG || 'main' }}"
+              -DMABOROUTU_APPKIT_GIT_REPOSITORY="${{ inputs.appkit_repository || vars.MABOROUTU_APPKIT_GIT_REPOSITORY || 'https://github.com/Eigen-0x41/maboroutu-appkit.git' }}"
+              -DMABOROUTU_APPKIT_GIT_TAG="${{ inputs.appkit_ref || vars.MABOROUTU_APPKIT_GIT_TAG || 'main' }}"
+
+         # Debug のみ。assert を有効にしたまま解析する。
+         - name: Build (with code analysis)
+           shell: pwsh
+           run: |
+              ${env:Esp.Extensions} = "CppCoreCheck.dll"
+              cmake --build build --config Debug
+
+         - name: Test
+           working-directory: build
+           run: ctest -C Debug --output-on-failure

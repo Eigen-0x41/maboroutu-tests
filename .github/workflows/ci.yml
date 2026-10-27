@@ -48,7 +48,7 @@ on:
             default: all
 
          compiler:
-            description: "Compiler (all: clang + msvc + sanitizer. gcc runs only when selected)"
+            description: "Compiler (all: clang + msvc + sanitizer + msvc-analyze. gcc runs only when selected)"
             required: true
             type: choice
             options:
@@ -57,6 +57,7 @@ on:
                - gcc
                - msvc
                - sanitizer
+               - msvc-analyze
             default: all
 
          build_type:
@@ -143,6 +144,17 @@ jobs:
    sanitizer:
       if: ${{ github.event_name != 'workflow_dispatch' || inputs.compiler == 'all' || inputs.compiler == 'sanitizer' }}
       uses: ./.github/workflows/impl_sanitizer.yml
+      with:
+         library_repository: ${{ inputs.library_repository }}
+         library_ref: ${{ inputs.library_ref }}
+         appkit_repository: ${{ inputs.appkit_repository }}
+         appkit_ref: ${{ inputs.appkit_ref }}
+
+   # MSVC のコード解析（/analyze と C++ Core Check）。結果は他のジョブとは別の
+   # チェックとして表示される。解析の対象はテストコードのみ。
+   msvc-analyze:
+      if: ${{ github.event_name != 'workflow_dispatch' || inputs.compiler == 'all' || inputs.compiler == 'msvc-analyze' }}
+      uses: ./.github/workflows/impl_msvc_analyze.yml
       with:
          library_repository: ${{ inputs.library_repository }}
          library_ref: ${{ inputs.library_ref }}
