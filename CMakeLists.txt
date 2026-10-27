@@ -86,8 +86,6 @@ source_location_format). When OFF, the appkit/ test directory is skipped \
 and maboroutu-appkit is not fetched."
    ON)
 
-include(FetchContent)
-
 # -----------------------------------------------------------------------
 # 1. GoogleTest の取得
 # -----------------------------------------------------------------------
@@ -155,6 +153,8 @@ endif()
 # から採ったものであり、実際にテスト対象コードがそのURL・ブランチで公開されて
 # いることを確認したものではない。CI・ローカルとも、実際の環境に合わせて
 # MABOROUTU_GIT_REPOSITORY / MABOROUTU_GIT_TAG を必ず調整すること。
+include(FetchContent)
+
 set(MABOROUTU_SOURCE_DIR "" CACHE PATH
    "Path to an existing local checkout of the maboroutu library. If set, \
 FetchContent uses this directory directly instead of cloning over the \
