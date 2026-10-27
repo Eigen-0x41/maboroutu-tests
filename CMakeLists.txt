@@ -87,20 +87,7 @@ and maboroutu-appkit is not fetched."
    ON)
 
 # -----------------------------------------------------------------------
-# 1. GoogleTest の取得
-# -----------------------------------------------------------------------
-set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_Declare(googletest
-   GIT_REPOSITORY https://github.com/google/googletest.git
-   GIT_TAG        v1.15.2)
-FetchContent_MakeAvailable(googletest)
-
-include(GoogleTest)
-enable_testing()
-
-# -----------------------------------------------------------------------
-# 2.1 ライフタイム解析（任意）
+# 0. ライフタイム解析（任意）
 #
 # テストコードのみに、コンパイラの解析を追加する。この位置（ライブラリと
 # GoogleTest の取得より後）で add_compile_options するため、ライブラリ本体や
@@ -140,7 +127,7 @@ if(MABOROUTU_TESTS_LIFETIME_SAFETY)
 endif()
 
 # -----------------------------------------------------------------------
-# 2.2 maboroutu 本体（テスト対象）の取得
+# 1. maboroutu 本体（テスト対象）の取得
 # -----------------------------------------------------------------------
 # 通常運用: FetchContent で GitHub から取得する。
 # ローカル開発時にライブラリを既に手元にcloneしてある場合は、
@@ -202,6 +189,19 @@ FetchContent uses this directory directly instead of cloning over the network.")
    endif()
    FetchContent_MakeAvailable(maboroutu_appkit)
 endif()
+
+# -----------------------------------------------------------------------
+# 2. GoogleTest の取得
+# -----------------------------------------------------------------------
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_Declare(googletest
+   GIT_REPOSITORY https://github.com/google/googletest.git
+   GIT_TAG        v1.15.2)
+FetchContent_MakeAvailable(googletest)
+
+include(GoogleTest)
+enable_testing()
 
 # -----------------------------------------------------------------------
 # 3. 各モジュールのテストディレクトリ
