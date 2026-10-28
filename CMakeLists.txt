@@ -166,38 +166,44 @@ enable_testing()
 # -----------------------------------------------------------------------
 # 2.5 ライフタイム解析（任意）
 #
-# テストコードのみに、コンパイラの解析を追加する。この位置（ライブラリと
-# GoogleTest の取得より後）で add_compile_options するため、ライブラリ本体や
-# GoogleTest には適用されない。ライブラリ本体も解析したい場合は、
-# FetchContent_MakeAvailable(maboroutu) より前へ移すこと。
-# 解析はバグの検出を補助するものであり、バグが無いことは保証しない。
-#   - Clang: -Wlifetime-safety-permissive（対応する Clang のみ。非対応の場合は
-#     警告を出して無効のままにする）
-#   - MSVC : /analyze /analyze:plugin EspXEngine.dll（C++ Core Check は
-#            環境変数 Esp.Extensions=CppCoreCheck.dll で有効になる）
+# コンパイラの解析を追加する。解析はバグの検出を補助するものであり、
+# バグが無いことは保証しない。指定した解析を構成できない場合は、無効のまま
+# 進めず、Configureを失敗させる。
+#   - Clang: -Wlifetime-safety-permissive をテストコードへ追加する。
+#   - MSVC : /analyze と /analyze:plugin EspXEngine.dll を追加する
+#            （C++ Core Check は環境変数 Esp.Extensions=CppCoreCheck.dll で
+#            有効になる）。モジュールをimportする翻訳単位の解析には、importされる
+#            モジュールのIFCも /analyze でビルドされている必要があるため
+#            （C1028）、ライブラリ本体とappkitにも追加する。
+#            GoogleTest は /analyze でビルドできないため対象外とする。
+#   この位置（GoogleTestの取得より後）で追加するため、GoogleTestには適用されない。
 # -----------------------------------------------------------------------
 option(MABOROUTU_TESTS_LIFETIME_SAFETY
-   "Enable lifetime analysis (Clang -Wlifetime-safety-permissive, MSVC /analyze) for the test code only." OFF)
+   "Enable lifetime analysis (Clang -Wlifetime-safety-permissive, MSVC /analyze)." OFF)
 if(MABOROUTU_TESTS_LIFETIME_SAFETY)
    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
       include(CheckCXXCompilerFlag)
       check_cxx_compiler_flag(-Wlifetime-safety-permissive
          MABOROUTU_COMPILER_HAS_LIFETIME_SAFETY)
-      if(MABOROUTU_COMPILER_HAS_LIFETIME_SAFETY)
-         add_compile_options(-Wlifetime-safety-permissive)
-      else()
-         message(WARNING
+      if(NOT MABOROUTU_COMPILER_HAS_LIFETIME_SAFETY)
+         message(FATAL_ERROR
             "MABOROUTU_TESTS_LIFETIME_SAFETY: this Clang "
             "(${CMAKE_CXX_COMPILER_VERSION}) does not support "
-            "-Wlifetime-safety-permissive. The analysis is disabled.")
+            "-Wlifetime-safety-permissive.")
       endif()
+      add_compile_options(-Wlifetime-safety-permissive)
    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-      # /analyze:plugin EspXEngine.dll は、C++ Core Check（環境変数
-      # Esp.Extensions に CppCoreCheck.dll を指定した場合）を有効にする。
-      # 指定が無い場合は、通常の解析のみとなる。
-      add_compile_options(/analyze /analyze:plugin EspXEngine.dll)
+      # SHELL: を付けないと、CMakeが "EspXEngine.dll" を別の引数として扱い、
+      # ソースファイルと解釈する。
+      set(MABOROUTU_ANALYZE_FLAGS /analyze "SHELL:/analyze:plugin EspXEngine.dll")
+      add_compile_options(${MABOROUTU_ANALYZE_FLAGS})
+      foreach(target maboroutu_core maboroutu_extension maboroutu_appkit)
+         if(TARGET ${target})
+            target_compile_options(${target} PRIVATE ${MABOROUTU_ANALYZE_FLAGS})
+         endif()
+      endforeach()
    else()
-      message(WARNING
+      message(FATAL_ERROR
          "MABOROUTU_TESTS_LIFETIME_SAFETY: no lifetime analysis is configured "
          "for ${CMAKE_CXX_COMPILER_ID}.")
    endif()

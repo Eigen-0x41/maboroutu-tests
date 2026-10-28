@@ -2,14 +2,13 @@ name: maboroutu GTest verification (MSVC code analysis)
 
 # MSVC のコード解析（/analyze）と C++ Core Check（ライフタイム系を含む）を
 # 有効にして、テストコードをビルドし、全テストを実行する。
-# 解析の対象はテストコードのみ（CMake の MABOROUTU_TESTS_LIFETIME_SAFETY=ON）。
+# 解析の対象は、テストコード・ライブラリ本体・appkit（GoogleTestを除く。
+# CMake の MABOROUTU_TESTS_LIFETIME_SAFETY=ON）。
 # 解析はバグの検出を補助するものであり、バグが無いことは保証しない。
 #
 # NOTE: C++ Core Check は、環境変数 Esp.Extensions に CppCoreCheck.dll を指定し、
 #       /analyze:plugin EspXEngine.dll を併用して有効にする（CMake 側で指定）。
-#       この構成は、MSVC 実機では未検証である。
-# NOTE: 結果が安定するまで、検出・構成の誤りでCI全体を失敗させないよう、
-#       ジョブを continue-on-error としている。安定したら外すこと。
+#       この構成は、MSVC 実機で動作確認できていない。
 
 on:
    workflow_call:
@@ -47,7 +46,6 @@ on:
 
 jobs:
    test:
-      continue-on-error: true
       strategy:
          fail-fast: false
          matrix:

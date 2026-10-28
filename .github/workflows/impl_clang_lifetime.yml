@@ -1,0 +1,95 @@
+name: maboroutu GTest verification (Clang lifetime safety)
+
+# Clang のライフタイム解析（-Wlifetime-safety-permissive）を有効にして、
+# テストコードをビルドし、全テストを実行する。
+# 解析の対象はテストコードのみ（CMake の MABOROUTU_TESTS_LIFETIME_SAFETY=ON）。
+# 解析はバグの検出を補助するものであり、バグが無いことは保証しない。
+#
+# NOTE: -Wlifetime-safety は Clang 23.1.0 のリリースノートで追加された
+#       オプションとして記載されている。Clang 18・19 は非対応のため、
+#       本ワークフローは別のバージョンのClangを apt.llvm.org の llvm.sh で
+#       導入する。-Wlifetime-safety-permissive の有無は CMake の Configure
+#       時に検査し、非対応の場合は失敗する。
+#       Clang 23 のパッケージ導入は、実機で動作確認できていない。
+
+on:
+   workflow_call:
+      inputs:
+         library_repository:
+            required: false
+            type: string
+            default: ""
+
+         library_ref:
+            required: false
+            type: string
+            default: ""
+
+         appkit_repository:
+            required: false
+            type: string
+            default: ""
+
+         appkit_ref:
+            required: false
+            type: string
+            default: ""
+
+         # 本体リポジトリ側のワークフローから呼び出す場合に指定する。
+         tests_repository:
+            required: false
+            type: string
+            default: ""
+
+         tests_ref:
+            required: false
+            type: string
+            default: ""
+
+jobs:
+   test:
+      strategy:
+         fail-fast: false
+         matrix:
+            clang: [23]
+      runs-on: ubuntu-24.04
+      steps:
+         - uses: actions/checkout@v4
+           with:
+              repository: ${{ inputs.tests_repository || github.repository }}
+              ref: ${{ inputs.tests_ref }}
+
+         - name: Install Clang ${{ matrix.clang }} + libc++ + Ninja
+           run: |
+              wget -q https://apt.llvm.org/llvm.sh
+              chmod +x llvm.sh
+              sudo ./llvm.sh ${{ matrix.clang }}
+              sudo apt-get install -y --no-install-recommends \
+                clang-tools-${{ matrix.clang }} \
+                libc++-${{ matrix.clang }}-dev libc++abi-${{ matrix.clang }}-dev \
+                ninja-build
+
+         - name: Install a CMake new enough to know cxx_std_23 for this compiler
+           run: pipx install "cmake>=3.31" --force
+
+         - name: Configure
+           run: >
+              cmake -S . -B build -G Ninja
+              -DCMAKE_BUILD_TYPE=Debug
+              -DCMAKE_C_COMPILER=clang-${{ matrix.clang }}
+              -DCMAKE_CXX_COMPILER=clang++-${{ matrix.clang }}
+              -DCMAKE_CXX_FLAGS=-stdlib=libc++
+              -DCMAKE_EXE_LINKER_FLAGS=-stdlib=libc++
+              -DCMAKE_CXX_COMPILER_CLANG_SCAN_DEPS=clang-scan-deps-${{ matrix.clang }}
+              -DMABOROUTU_TESTS_LIFETIME_SAFETY=ON
+              -DMABOROUTU_GIT_REPOSITORY="${{ inputs.library_repository || vars.MABOROUTU_GIT_REPOSITORY || 'https://github.com/Eigen-0x41/maboroutu.git' }}"
+              -DMABOROUTU_GIT_TAG="${{ inputs.library_ref || vars.MABOROUTU_GIT_TAG || 'main' }}"
+              -DMABOROUTU_APPKIT_GIT_REPOSITORY="${{ inputs.appkit_repository || vars.MABOROUTU_APPKIT_GIT_REPOSITORY || 'https://github.com/Eigen-0x41/maboroutu-appkit.git' }}"
+              -DMABOROUTU_APPKIT_GIT_TAG="${{ inputs.appkit_ref || vars.MABOROUTU_APPKIT_GIT_TAG || 'main' }}"
+
+         - name: Build
+           run: cmake --build build
+
+         - name: Test
+           working-directory: build
+           run: ctest --output-on-failure

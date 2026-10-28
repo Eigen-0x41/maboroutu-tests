@@ -48,7 +48,7 @@ on:
             default: all
 
          compiler:
-            description: "Compiler (all: clang + msvc + sanitizer + msvc-analyze. gcc runs only when selected)"
+            description: "Compiler (all: clang + msvc + sanitizer. gcc, msvc-analyze and clang-lifetime run only when selected)"
             required: true
             type: choice
             options:
@@ -58,6 +58,7 @@ on:
                - msvc
                - sanitizer
                - msvc-analyze
+               - clang-lifetime
             default: all
 
          build_type:
@@ -150,11 +151,22 @@ jobs:
          appkit_repository: ${{ inputs.appkit_repository }}
          appkit_ref: ${{ inputs.appkit_ref }}
 
-   # MSVC のコード解析（/analyze と C++ Core Check）。結果は他のジョブとは別の
-   # チェックとして表示される。解析の対象はテストコードのみ。
+   # MSVC のコード解析（/analyze と C++ Core Check）。手動実行（workflow_dispatch）で
+   # compiler に msvc-analyze を選んだ場合のみ実行する。
    msvc-analyze:
-      if: ${{ github.event_name != 'workflow_dispatch' || inputs.compiler == 'all' || inputs.compiler == 'msvc-analyze' }}
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.compiler == 'msvc-analyze' }}
       uses: ./.github/workflows/impl_msvc_analyze.yml
+      with:
+         library_repository: ${{ inputs.library_repository }}
+         library_ref: ${{ inputs.library_ref }}
+         appkit_repository: ${{ inputs.appkit_repository }}
+         appkit_ref: ${{ inputs.appkit_ref }}
+
+   # Clang のライフタイム解析（-Wlifetime-safety-permissive）。手動実行
+   # （workflow_dispatch）で compiler に clang-lifetime を選んだ場合のみ実行する。
+   clang-lifetime:
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.compiler == 'clang-lifetime' }}
+      uses: ./.github/workflows/impl_clang_lifetime.yml
       with:
          library_repository: ${{ inputs.library_repository }}
          library_ref: ${{ inputs.library_ref }}
