@@ -1,12 +1,4 @@
 // mylib.data_buffer (maboroutu.data_buffer) のテスト。
-//
-// NOTE（検証結果・要確認）: library_spec.md（v1.33、2.1節/3章/4章）には
-// data_buffer という名称のコンポーネントの記載が見当たらない。アップロード
-// された実装（core/src/data_buffer.cppm）には export module
-// maboroutu.data_buffer として実在するため、本テストは実装のexport済み
-// シグネチャを一次情報として作成したが、仕様書との対応関係（正式な仕様
-// 節が存在するのか、未文書化の作業中コンポーネントなのか）は不明である。
-// この食い違いは映幻に確認することを推奨する。
 #include <array>
 #include <cstddef>
 #include <span>

@@ -1,50 +1,12 @@
 // mylib.sequential_source (maboroutu.sequential_source) のテスト。
-// library_spec.md 4.4節・8章。
 //
-// =====================================================================
-// !!! 重要 (検証済みの実装バグ・ビルドブロッカー) !!!
-// =====================================================================
-// library_spec.md 8章は次を「優先度: 高」の未確定事項として明記している:
-//   「sequential_source_handle/writable_sequential_source_handleのcount()
-//    実装ミス(v1.33で発見・修正)の再発防止として、GTest側で型消去ラッパー
-//    経由のcount()を実際に呼び出す実行時テストの追加が未実施」
-// 本ファイルはまさにこの実行時テストを提供する（下記
+// 型消去ラッパー（sequential_source_handle / writable_sequential_source_handle）
+// 経由の count() を実際に呼び出す実行時テストを含む（count() の実装ミスの
+// 再発防止。下記
 // HandleCountReflectsActualAdvancedBytes_NullSequentialSource /
 // HandleCountCallsCountNotSize_RegressionGuard 参照）。
-//
-// ただし、実際にアップロードされたソース (core/src/sequential_source.cppm)
-// を実機検証したところ、`sequential_source_handle` /
-// `writable_sequential_source_handle` の両クラス宣言に `export`
-// キーワードが付与されていないことを確認した（data_source.cppm の
-// `data_source_handle` / `writable_data_source_handle`
-// が両方とも export されているのと非対称）。
-//
-// この結果、本ファイルのように別プロジェクトから
-// `import maboroutu.sequential_source;` するだけの通常の消費側コードからは
-// `maboroutu::sequential_source_handle` /
-// `maboroutu::writable_sequential_source_handle` という名前そのものが
-// 見えず、以下のコンパイルエラーになることを Clang 18 (-std=c++23
-// -stdlib=libc++) で実際に確認済み:
-//
-//   error: declaration of 'sequential_source_handle' must be imported
-//   from module 'maboroutu.sequential_source' before it is required
-//   note: declaration here is not visible
-//
-// すなわち、本ファイルの目的（8章が要求する回帰テストの実装）は、
-// sequential_source.cppm 側に以下の1行ずつの修正が適用されるまで
-// 達成できない（ビルドが通らない）:
-//
-//   -class writable_sequential_source_handle {
-//   +export class writable_sequential_source_handle {
-//   ...
-//   -class sequential_source_handle {
-//   +export class sequential_source_handle {
-//
-// 上記2箇所の `export` 追加は、他の設計（try_copy()の挙動・move-only性等）
-// には一切影響しない可視性のみの変更であることをClang 18で確認済み
-// （本ファイル下部のテスト内容は、その2行を適用した状態で実際に
-// パスすることを確認して作成した）。
-// =====================================================================
+// 両ハンドルは、別プロジェクトから import するだけで参照できるよう export
+// されている必要がある。
 #include <array>
 #include <cstddef>
 #include <memory>

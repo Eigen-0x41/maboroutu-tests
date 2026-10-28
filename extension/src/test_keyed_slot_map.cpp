@@ -1,13 +1,4 @@
 // mylib.keyed_slot_map (maboroutu.keyed_slot_map) のテスト。
-//
-// NOTE（検証結果・要確認）: library_spec.md には `mylib.keyed_slot_map` の
-// コンポーネント節がまだ存在しない（8章 v1.24の未確定事項として
-// 「独立モジュールとして提供する方針が決まっている」と記載されているのみ）。
-// 会話ログ上の記憶（Claude側メモリ）では「モジュール名は
-// mylib.keyed_slot_map に確定」とあるが、これは映幻とClaude間の合意事項
-// であり、library_spec.md 自体にはまだ反映されていないと見られる。
-// 本テストは実装（keyed_slot_map.cppm）のexport済みシグネチャを一次情報
-// として作成した。
 #include <cstddef>
 #include <stdexcept>
 #include <string>

@@ -1,11 +1,10 @@
-// mylib.data_source (maboroutu.data_source) のテスト。library_spec.md 4.3節。
+// mylib.data_source (maboroutu.data_source) のテスト。
 //
-// errc::data_source はモジュールローカル・非exportであるため（v1.29〜v1.31
-// 確定方式）、本テストのカスタム data_source 実装（bounded_fake_source）は
-// v1.31注記に記載された手法——decltype による式ベースの型推論——を用いて
-// errc::data_source という名前を一切綴らずにエラー値を構築している。
-// これは同注記の主張（「外部からは decltype(...) 経由でCode型・列挙子へ
-// 到達可能」）が実際に機能することを示す実地検証も兼ねる。
+// errc::data_source はモジュールローカル・非exportであるため、本テストの
+// カスタム data_source 実装（bounded_fake_source）は、decltype による
+// 式ベースの型推論で errc::data_source という名前を一切綴らずに
+// エラー値を構築している。外部からは decltype(...) 経由でCode型・列挙子へ
+// 到達できることの検証も兼ねる。
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -107,8 +106,7 @@ TEST(MaboroutuDataSource, WritableHandleDelegatesWrite) {
    EXPECT_TRUE(result.has_value());
 }
 
-// try_copy(): null_data_source は copy_constructible なので複製が成功する
-// (4.3節 v1.23注記)。
+// try_copy(): null_data_source は copy_constructible なので複製が成功する。
 TEST(MaboroutuDataSource, TryCopySucceedsForCopyableConcreteType) {
    maboroutu::data_source_handle handle{maboroutu::null_data_source{}};
    std::optional<maboroutu::data_source_handle> cloned = handle.try_copy();
@@ -153,11 +151,10 @@ TEST(MaboroutuDataSource, TryCopyReturnsNulloptForNonCopyableConcreteType) {
 
 // ---------------------------------------------------------------------
 // read() の契約: 短縮読み込みを行わず、要求範囲を満たせない場合は
-// mylib::error を伴う std::unexpected を返す（library_spec.md 4.3節 v1.17）。
+// mylib::error を伴う std::unexpected を返す。
 //
 // errc::data_source を直接綴らずにエラー値を構築するため、
-// data_source_result<T> の error_type::code_type を decltype で導出する
-// (v1.31注記の手法)。
+// data_source_result<T> の error_type::code_type を decltype で導出する。
 // ---------------------------------------------------------------------
 using data_source_code_type =
     decltype(std::declval<maboroutu::data_source_result<int>>()

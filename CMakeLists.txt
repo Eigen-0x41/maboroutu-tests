@@ -3,10 +3,8 @@ cmake_minimum_required(VERSION 3.28)
 # =============================================================================
 # maboroutu-tests
 #
-# maboroutu (library_spec.md 記載名: mylib) の GTest 検証プロジェクト。
-# library_spec.md 6章「検証方針」の記述:
-#   「本ライブラリとは別プロジェクトにて、GTestを用いた検証を行う」
-# に従い、本プロジェクトはライブラリ本体のリポジトリとは別プロジェクトとして
+# maboroutu の GTest 検証プロジェクト。
+# 本プロジェクトは、ライブラリ本体のリポジトリとは別プロジェクトとして
 # 構成する。ライブラリ本体は FetchContent 経由で取得し、CMake の
 # `FILE_SET ... TYPE CXX_MODULES` によって公開されたモジュール（BMI）を
 # import して検証する。
@@ -94,12 +92,6 @@ and maboroutu-appkit is not fetched."
 # -DMABOROUTU_SOURCE_DIR=/path/to/maboroutu を指定するとネットワーク取得を
 # 省略し、そのディレクトリを直接 add_subdirectory() する
 # （FetchContent_Declare(... SOURCE_DIR ...) を使用）。
-#
-# NOTE（推測・要確認）: MABOROUTU_GIT_REPOSITORY の既定値は、アップロードされた
-# vcpkg.json の "homepage" フィールド（https://github.com/Eigen-0x41/maboroutu）
-# から採ったものであり、実際にテスト対象コードがそのURL・ブランチで公開されて
-# いることを確認したものではない。CI・ローカルとも、実際の環境に合わせて
-# MABOROUTU_GIT_REPOSITORY / MABOROUTU_GIT_TAG を必ず調整すること。
 include(FetchContent)
 
 set(MABOROUTU_SOURCE_DIR "" CACHE PATH
@@ -107,9 +99,7 @@ set(MABOROUTU_SOURCE_DIR "" CACHE PATH
 FetchContent uses this directory directly instead of cloning over the \
 network (useful for local development against a working copy).")
 set(MABOROUTU_GIT_REPOSITORY "https://github.com/Eigen-0x41/maboroutu.git" CACHE STRING
-   "Git URL of the maboroutu library repository under test. \
-NOTE: taken from vcpkg.json's \"homepage\" field; not independently \
-verified as the canonical source location. Adjust as needed.")
+   "Git URL of the maboroutu library repository under test.")
 set(MABOROUTU_GIT_TAG "main" CACHE STRING
    "Git branch/tag/commit of the maboroutu library to check out and test. \
 Pin this to a specific commit/tag for reproducible CI runs.")

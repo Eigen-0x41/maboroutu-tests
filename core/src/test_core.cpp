@@ -1,5 +1,4 @@
 // mylib.core (maboroutu.core) のテスト。
-// library_spec.md 4.1節。
 //
 // core は「それ自体は機能を持たない型・concept・定数」のみを置くという
 // 設計方針のため、コンパイル時静的検証（static_assert）が中心となる。

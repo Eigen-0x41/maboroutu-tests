@@ -1,11 +1,7 @@
 // mylib.stream_data_source (maboroutu.stream_data_source) のテスト。
-// library_spec.md 8章 v1.26変更履歴に「新規タスクとして、std::iostreamベース
-// のstream_data_sourceを別モジュールとして実装する構想を追加（設計未着手）」
-// と記載されている、その実装済み版に対するテスト。
 //
 // NOTE: モジュール自体が `#if __STDC_HOSTED__ != 0` でガードされている
-// (freestanding環境では既定で無効、3章のfreestandingガード方針の一種)。
-// 本テストはhosted環境を前提とする。
+// (freestanding環境では既定で無効)。本テストはhosted環境を前提とする。
 #include <array>
 #include <cstddef>
 #include <cstring>
@@ -65,7 +61,7 @@ TEST(MaboroutuStreamDataSource, ReadReturnsRequestedRegion) {
 }
 
 TEST(MaboroutuStreamDataSource, ReadBeyondEndFailsWithoutShortRead) {
-   // read()の契約(library_spec.md 4.3節 v1.17)は data_source と同一
+   // read()の契約は data_source と同一
    // （短縮読み込みを行わない）。
    maboroutu::stream_data_source<std::istringstream> src(
        std::string("short"));

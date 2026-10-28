@@ -1,8 +1,4 @@
-// mylib.error (maboroutu.error) のテスト。library_spec.md 4.1節末尾の
-// 「mylib.error の結果型エイリアスについて」および8章の未確定事項（v1.30新規、
-// 優先度: 低）で触れられている通り、mylib.error 自体の独立コンポーネント節は
-// 本仕様書にまだ存在しないため、本テストは実装（error.cppm）のexport済み
-// シグネチャを一次情報として作成した。
+// mylib.error (maboroutu.error) のテスト。
 //
 // error_detail / basic_error はモジュール内部型（exportされていない）ため、
 // 外部から参照可能なのは error<Code,Detail,DetailDeleter> / result<...> /

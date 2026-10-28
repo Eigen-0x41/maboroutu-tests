@@ -1,17 +1,10 @@
 // mylib.binary_convert (maboroutu.binary_convert) のテスト。
-// library_spec.md 4.8節・6章。
 //
-// 6章の検証方針は「(1) 各種数値型・Endian指定の往復変換（write→readで元の値と
-// 一致すること）」を要求している。しかし null_data_source /
-// null_writable_data_source は書き込みを実際には保持せず、読み込みは
-// 空の領域にのみ成功するスタブ（posix /dev/null の模倣）であるため、
-// これらだけでは往復の忠実性を検証できない。
-//
-// mylib.memory_data_source（library_spec.md「on the horizon」に記載の通り、
-// v1.33時点で未実装）が無いため、本テストでは検証専用の最小限の
-// in-memory data_source / sequential_source モックをテスト側に用意した。
-// これはライブラリの一部ではなく、あくまでこのテストプロジェクト内の
-// テストダブルである。
+// 数値型・Endian指定の往復変換（write→readで元の値と一致すること）を検証する。
+// null_data_source / null_writable_data_source は書き込みを保持しないスタブ
+// （posix /dev/null の模倣）であり、往復の忠実性を検証できないため、検証専用の
+// 最小限の in-memory data_source / sequential_source モックをテスト側に用意した。
+// これはライブラリの一部ではなく、このテストプロジェクト内のテストダブルである。
 #include <array>
 #include <bit>
 #include <cstddef>
@@ -261,7 +254,7 @@ TEST(MaboroutuBinaryConvert, SequentialReadVectorWithOverflowingCountFails) {
 }
 
 // ---------------------------------------------------------------------
-// sequential_source経由 (v1.33追加のoffset省略オーバーロード)
+// sequential_source経由 (offset省略オーバーロード)
 // ---------------------------------------------------------------------
 TEST(MaboroutuBinaryConvert, SequentialSourceValueRoundTrip) {
    memory_sequential_source seq(sizeof(std::int32_t));
@@ -282,8 +275,7 @@ TEST(MaboroutuBinaryConvert, SequentialSourceValueRoundTrip) {
 
 TEST(MaboroutuBinaryConvert, SequentialSourceSequentialReadsAdvanceCount) {
    // binary_convert のoffset省略オーバーロードは sequential_source::count()
-   // に沿って前進するため、既知レイアウトを順番に読み書きできる
-   // (4.9節「呼び出し例」の記述と対応)。
+   // に沿って前進するため、既知レイアウトを順番に読み書きできる。
    memory_sequential_source seq(sizeof(std::uint32_t) + sizeof(std::uint16_t) * 3);
    ASSERT_TRUE(maboroutu::write_value<maboroutu::endian::little>(
                    seq, std::uint32_t{100})
@@ -294,7 +286,7 @@ TEST(MaboroutuBinaryConvert, SequentialSourceSequentialReadsAdvanceCount) {
                     .has_value()));
    EXPECT_EQ(seq.count(), sizeof(std::uint32_t) + sizeof(std::uint16_t) * 3);
 
-   // count()は一方向前進のみ(4.9節参照)のため、書いたものを読み直すには
+   // count()は一方向前進のみのため、書いたものを読み直すには
    // 同じバイト列を持つ新しいインスタンス（カーソルは0から）を使う。
    memory_sequential_source reader(seq.bytes());
    auto head =

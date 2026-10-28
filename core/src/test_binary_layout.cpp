@@ -1,36 +1,22 @@
 // mylib.binary_layout (maboroutu.binary_layout) のテスト。
 //
-// NOTE（一次情報）: 本モジュールはlibrary_spec.mdにまだコンポーネント節が
-// 無い新規モジュール。テストは映幻から提供された引き継ぎ資料
-// 「maboroutu — GTest実装のための引き継ぎ資料」(2章・3.3節・付録B)を
-// 一次情報として作成した。
-//
-// !!! 最重要 (引き継ぎ資料が明記する既知の回帰リスク) !!!
+// !!! 最重要 (既知の回帰リスク) !!!
 // read_uint/write_uintは当初「バイト配置判定式がホストのネイティブ
 // エンディアンと比較する」という誤りを含んでいたが修正済み
 // (`(Endian == endian::native) ? i : (Bytes-1-i)` → 正しくは
 // `(Endian == endian::little) ? i : (Bytes-1-i)`)。
 //
-// 引き継ぎ資料は「read/writeの往復テストだけでは検出できないため、
-// read_uint/write_uintを経由しない生バイト列の直接検証が必須」と
-// 述べているが、本ファイルの実装後に実機検証したところ、
-// **x86_64等のlittle-endianホスト上では、生バイト列を直接検証する
-// 本ファイルの WriteUint*ProducesExpectedRawBytes 系のテストも
-// この特定の回帰を検出できない**ことを確認した（実際に該当バグを
-// 一時的に再現させ、全テストが通過してしまうことを確認済み）。
-// 理由: little-endianホストでは `endian::native == endian::little`
-// が常に真であるため、誤った式 `Endian == endian::native` は、
-// 正しい式 `Endian == endian::little` と**あらゆるEndian値に対して
-// 完全に同一の結果**を返してしまい、往復テストか生バイト列検証かに
-// 関わらず、ランタイムテストでは原理的に区別できない。
-// この回帰を実際に検出できるのは big-endian ホスト（SPARC/PowerPC等）
-// 上で実行した場合のみであり、GitHub Actions等の一般的なCI環境
-// （x86_64 / ARM64、いずれもlittle-endian）では実行時テストによる
-// 再発防止は成立しない。静的解析・コードレビューでの検出に頼るしかない
-// 点を、映幻に申し送りとして明記しておく。
-// 以下のRawBytes系テストはそれでも「現在の実装が正しいこと」自体の
-// 検証としては引き続き有効であるため残しているが、上記の限界を
-// 理解した上で読むこと。
+// この回帰は、往復テストでも、生バイト列を直接検証する本ファイルの
+// WriteUint*ProducesExpectedRawBytes 系のテストでも、little-endianホスト上では
+// 検出できない（該当バグを一時的に再現させ、全テストが通過することを確認済み）。
+// 理由: little-endianホストでは `endian::native == endian::little` が常に
+// 真であるため、誤った式 `Endian == endian::native` は、正しい式
+// `Endian == endian::little` とあらゆるEndian値に対して同一の結果を返し、
+// ランタイムテストでは原理的に区別できない。検出できるのはbig-endianホスト
+// （SPARC/PowerPC等）上で実行した場合のみであり、一般的なCI環境
+// （x86_64 / ARM64、いずれもlittle-endian）では、静的解析・コードレビューに
+// 頼るしかない。
+// RawBytes系テストは、現在の実装が正しいことの検証としては有効である。
 //
 // position_patch のデストラクタ未解決検出は assert() ベースであるため、
 // ASSERT_DEATH系のテストはNDEBUGが定義されていない(assertが有効な)

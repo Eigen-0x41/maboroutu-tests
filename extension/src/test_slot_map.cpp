@@ -1,5 +1,4 @@
 // mylib.slot_map (maboroutu.slot_map) のテスト。
-// library_spec.md 4.7節・6章「slot_mapの検証」。
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
@@ -12,7 +11,7 @@ import maboroutu.slot_map;
 
 namespace {
 
-// 4.7節 v1.25 推奨規約: IndexT の基底型は std::size_t とする。
+// 推奨規約: IndexT の基底型は std::size_t とする。
 enum class idx_t : std::size_t {};
 
 // ---------------------------------------------------------------------
@@ -32,11 +31,10 @@ enum class idx_t : std::size_t {};
 // 拒否そのものは正常に機能しており、問題はrequires式内での
 // SFINAE吸収がエイリアス越しにうまく働かない点のみ）。
 // このため、本ファイルではこの否定的コンパイル時テストを行わない。
-// library_spec.md 6章が要求する「符号付き基底型のenumや非enum型を渡した
-// 場合にインスタンス化できないことをstatic_assert(!requires{...})で検証
-// する」というコンパイル時ネガティブテストは、ライブラリ本体側の
-// テスト（basic_slot_mapへの直接アクセスが可能な同一モジュール内）で
-// 実施されることを前提とする。
+// 符号付き基底型のenumや非enum型を渡した場合にインスタンス化できないことの
+// static_assert(!requires{...}) によるコンパイル時ネガティブテストは、
+// ライブラリ本体側のテスト（basic_slot_mapへの直接アクセスが可能な
+// 同一モジュール内）で実施されることを前提とする。
 
 // ---------------------------------------------------------------------
 // checkout()+construct_at() (2ステップ) と insert() (1ステップ) が
@@ -137,7 +135,7 @@ TEST(MaboroutuSlotMap, GetIfReturnsPointerOrNullptr) {
 
 // ---------------------------------------------------------------------
 // inplace_slot_map: 固定長版。全スロット使用後の境界外アクセス検証
-// (v1.16修正の再発防止、6章記載の検証項目)
+// (再発防止)
 // ---------------------------------------------------------------------
 TEST(MaboroutuSlotMap, InplaceSlotMapThrowsOutOfRangeWhenExhausted) {
    constexpr std::size_t capacity = 4;

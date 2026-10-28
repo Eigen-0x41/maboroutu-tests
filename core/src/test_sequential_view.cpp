@@ -1,5 +1,4 @@
 // mylib.sequential_view (maboroutu.sequential_view) のテスト。
-// library_spec.md 4.9節・6章。
 #include <array>
 #include <cstddef>
 #include <expected>
@@ -73,7 +72,7 @@ static_assert(maboroutu::data_source<memory_data_source>);
 static_assert(maboroutu::writable_data_source<memory_data_source>);
 
 // ---------------------------------------------------------------------
-// concept充足 (4.9節末尾のstatic_assertと同内容だが、消費側からも確認)
+// concept充足 (ライブラリ側のstatic_assertと同内容だが、消費側からも確認)
 // ---------------------------------------------------------------------
 static_assert(
     maboroutu::sequential_source<maboroutu::sequential_view<memory_data_source>>);
@@ -101,7 +100,7 @@ TEST(MaboroutuSequentialView, CountAccumulatesAcrossReadsAndWrites) {
 }
 
 // ---------------------------------------------------------------------
-// 失敗時は count() を進めない (6章 検証方針(2)、v1.17短縮読み込み契約の精神)
+// 失敗時は count() を進めない (no-short-read 契約の精神)
 // ---------------------------------------------------------------------
 TEST(MaboroutuSequentialView, CountDoesNotAdvanceOnFailedRead) {
    memory_data_source src(2); // std::uint32_t(4byte) には満たない容量

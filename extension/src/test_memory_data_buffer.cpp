@@ -1,10 +1,5 @@
 // mylib.memory_data_buffer (maboroutu.memory_data_buffer) のテスト。
 //
-// NOTE（一次情報）: 本モジュールはlibrary_spec.mdにまだコンポーネント節が
-// 無い新規モジュール。テストは映幻から提供された引き継ぎ資料
-// 「maboroutu — GTest実装のための引き継ぎ資料」(3.2節・付録A・4章)を
-// 一次情報として作成した。
-//
 // write() の `assert(data.size() == reg.size)` はデバッグビルド前提の
 // 事前条件チェックであるため、その違反を確認するテストは
 // NDEBUGが定義されていないビルド構成が前提となる。
