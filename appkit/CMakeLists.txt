@@ -20,6 +20,8 @@ maboroutu_add_appkit_test(test_console)
 
 maboroutu_add_appkit_test(test_source_location_format)
 
+maboroutu_add_appkit_test(test_command)
+
 # maboroutu.result_format は、本体のエラー型・結果型を整形するため、
 # 統合テストとして本体の core・extension にもリンクする。
 maboroutu_add_appkit_test(test_result_format)
