@@ -166,3 +166,26 @@ TEST(MaboroutuStreamDataSource, ReadIntoBeyondEndFailsAndReadingContinues) {
    ASSERT_TRUE(ok.has_value());
    EXPECT_EQ(static_cast<char>(dst[0]), 'h');
 }
+
+namespace {
+TEST(MaboroutuStreamDataSource, WorksThroughDataSourceHandle) {
+   maboroutu::data_source_handle handle(
+       maboroutu::stream_data_source<std::istringstream>(
+           std::string("hello world")));
+   auto size_result = handle.size();
+   ASSERT_TRUE(size_result.has_value());
+   EXPECT_EQ(*size_result, 11u);
+   auto result = handle.read(maboroutu::region{.offset = 6, .size = 5});
+   ASSERT_TRUE(result.has_value());
+   EXPECT_EQ(std::memcmp(result->value.get(), "world", 5), 0);
+}
+
+TEST(MaboroutuStreamDataSource, WorksThroughWritableDataSourceHandle) {
+   maboroutu::writable_data_source_handle handle(
+       maboroutu::stream_writable_data_source<std::stringstream>(
+           std::string("hello world")));
+   auto size_result = handle.size();
+   ASSERT_TRUE(size_result.has_value());
+   EXPECT_EQ(*size_result, 11u);
+}
+} // namespace
