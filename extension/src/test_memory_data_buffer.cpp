@@ -4,7 +4,11 @@
 // 事前条件チェックであるため、その違反を確認するテストは
 // NDEBUGが定義されていないビルド構成が前提となる。
 #include <array>
+#include <atomic>
 #include <cstddef>
+#include <cstdlib>
+#include <limits>
+#include <new>
 #include <span>
 #include <type_traits>
 #include <utility>
@@ -17,6 +21,33 @@ import maboroutu.error;
 import maboroutu.data_source;
 import maboroutu.data_buffer;
 import maboroutu.memory_data_buffer;
+
+
+// ---------------------------------------------------------------------
+// アロケーション失敗の注入。
+// このテスト実行ファイルの operator new を置き換え、g_fail_countdown 回目の
+// 確保で std::bad_alloc を送出する。-1 の間は、通常どおり確保する。
+// ---------------------------------------------------------------------
+namespace {
+std::atomic<long> g_fail_countdown{-1};
+} // namespace
+
+void *operator new(std::size_t size) {
+   auto const countdown = g_fail_countdown.load();
+   if (countdown == 0) {
+      g_fail_countdown.store(-1);
+      throw std::bad_alloc();
+   }
+   if (countdown > 0) {
+      g_fail_countdown.store(countdown - 1);
+   }
+   if (void *ptr = std::malloc(size ? size : 1)) {
+      return ptr;
+   }
+   throw std::bad_alloc();
+}
+void operator delete(void *ptr) noexcept { std::free(ptr); }
+void operator delete(void *ptr, std::size_t) noexcept { std::free(ptr); }
 
 namespace {
 
@@ -400,3 +431,146 @@ TEST(MaboroutuMemoryDataBuffer, ReadIntoBeyondSizeFailsWithoutChangingDst) {
    ASSERT_FALSE(result.has_value());
    EXPECT_EQ(dst[0], std::byte{0xEE});
 }
+
+// ---------------------------------------------------------------------
+// 範囲外への書き込み（0埋め）と、アロケーション失敗（v1.59）
+// ---------------------------------------------------------------------
+TEST(MaboroutuMemoryDataBuffer, WriteBeyondSizeFillsGapWithZero) {
+   maboroutu::memory_data_buffer buf;
+   std::array<std::byte, 4> head{std::byte{1}, std::byte{2}, std::byte{3},
+                                 std::byte{4}};
+   ASSERT_TRUE(buf.write(maboroutu::region{.offset = 0, .size = 4}, head)
+                   .has_value());
+   // 現在の大きさ（4）より先の、10000 から書く。間の区間は 0 で埋まる。
+   std::array<std::byte, 2> tail{std::byte{0xAA}, std::byte{0xBB}};
+   ASSERT_TRUE(buf.write(maboroutu::region{.offset = 10000, .size = 2}, tail)
+                   .has_value());
+   ASSERT_EQ(buf.size().value_or(0), 10002u);
+   auto bytes = buf.read(maboroutu::region{.offset = 0, .size = 10002});
+   ASSERT_TRUE(bytes.has_value());
+   EXPECT_EQ(bytes->value[0], std::byte{1});
+   EXPECT_EQ(bytes->value[3], std::byte{4});
+   for (std::size_t i = 4; i < 10000; ++i) {
+      ASSERT_EQ(bytes->value[i], std::byte{0}) << "offset " << i;
+   }
+   EXPECT_EQ(bytes->value[10000], std::byte{0xAA});
+   EXPECT_EQ(bytes->value[10001], std::byte{0xBB});
+}
+
+TEST(MaboroutuMemoryDataBuffer, GrowFillsWithZero) {
+   maboroutu::memory_data_buffer buf;
+   std::array<std::byte, 3> data{std::byte{9}, std::byte{9}, std::byte{9}};
+   ASSERT_TRUE(buf.append(data).has_value());
+   auto region = buf.grow(5000);
+   ASSERT_TRUE(region.has_value());
+   auto bytes = buf.read(*region);
+   ASSERT_TRUE(bytes.has_value());
+   for (std::size_t i = 0; i < region->size; ++i) {
+      ASSERT_EQ(bytes->value[i], std::byte{0}) << "offset " << i;
+   }
+}
+
+#if defined(__cpp_exceptions)
+// アロケーションに失敗した場合は allocation_failure を返し、バッファを
+// 変更しない。以降の操作は、通常どおり成功する。
+// NOTE: AddressSanitizer は、過大な確保要求を、既定で致命的エラーとして
+//       終了する（allocator_may_return_null=0）ため、このテストはASanでは
+//       実行しない。失敗の注入によるテスト（下記）は、ASanでも実行する。
+#if defined(__SANITIZE_ADDRESS__)
+#define MABOROUTU_TEST_UNDER_ASAN 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define MABOROUTU_TEST_UNDER_ASAN 1
+#endif
+#endif
+#if !defined(MABOROUTU_TEST_UNDER_ASAN)
+TEST(MaboroutuMemoryDataBuffer, AllocationFailureLeavesBufferUnchanged) {
+   maboroutu::memory_data_buffer buf;
+   std::array<std::byte, 4> data{std::byte{1}, std::byte{2}, std::byte{3},
+                                 std::byte{4}};
+   ASSERT_TRUE(buf.append(data).has_value());
+
+   // 要求サイズが過大で、確保できない（std::vector::reserve が失敗する）。
+   constexpr auto huge = std::numeric_limits<std::size_t>::max() / 4;
+   auto written = buf.write(maboroutu::region{.offset = huge, .size = 1},
+                            std::array<std::byte, 1>{std::byte{7}});
+   ASSERT_FALSE(written.has_value());
+   EXPECT_EQ(written.error().code(), ds_code_type::allocation_failure);
+
+   auto grown = buf.grow(huge);
+   ASSERT_FALSE(grown.has_value());
+   EXPECT_EQ(grown.error().code(), buffer_code_type::allocation_failure);
+
+   std::vector<std::byte> big(1);
+   auto appended = buf.append(std::span<std::byte const>(big));
+   ASSERT_TRUE(appended.has_value());
+
+   ASSERT_EQ(buf.size().value_or(0), 5u);
+   auto bytes = buf.read(maboroutu::region{.offset = 0, .size = 4});
+   ASSERT_TRUE(bytes.has_value());
+   EXPECT_EQ(bytes->value[0], std::byte{1});
+   EXPECT_EQ(bytes->value[3], std::byte{4});
+}
+#endif
+
+// n 回目の確保で失敗させ、すべての段階で、バッファが変更されないこと、
+// その後の操作が成功すること、を確認する（巻き戻しの経路の検証）。
+TEST(MaboroutuMemoryDataBuffer, AllocationFailureAtEveryStepRollsBack) {
+   // 複数のユニットにまたがる大きさ。
+   constexpr std::size_t length = 40000;
+   std::vector<std::byte> payload(length, std::byte{0x5A});
+
+   bool failed_at_least_once = false;
+   for (long step = 0; step < 64; ++step) {
+      maboroutu::memory_data_buffer buf;
+      std::array<std::byte, 2> head{std::byte{1}, std::byte{2}};
+      ASSERT_TRUE(buf.append(head).has_value());
+
+      g_fail_countdown.store(step);
+      auto result = buf.append(std::span<std::byte const>(payload));
+      g_fail_countdown.store(-1);
+
+      if (result.has_value()) {
+         // これ以上の段階では、失敗が起きない。
+         EXPECT_EQ(buf.size().value_or(0), 2 + length);
+         break;
+      }
+      failed_at_least_once = true;
+      EXPECT_EQ(result.error().code(), buffer_code_type::allocation_failure)
+          << "step " << step;
+      // バッファは、変更されていない。
+      ASSERT_EQ(buf.size().value_or(0), 2u) << "step " << step;
+      auto bytes = buf.read(maboroutu::region{.offset = 0, .size = 2});
+      ASSERT_TRUE(bytes.has_value());
+      EXPECT_EQ(bytes->value[0], std::byte{1});
+      EXPECT_EQ(bytes->value[1], std::byte{2});
+      // 失敗の後も、通常どおり拡張できる。
+      auto retry = buf.append(std::span<std::byte const>(payload));
+      ASSERT_TRUE(retry.has_value()) << "step " << step;
+      ASSERT_EQ(buf.size().value_or(0), 2 + length);
+      auto tail = buf.read(maboroutu::region{.offset = 2, .size = length});
+      ASSERT_TRUE(tail.has_value());
+      EXPECT_EQ(tail->value[0], std::byte{0x5A});
+      EXPECT_EQ(tail->value[length - 1], std::byte{0x5A});
+   }
+   EXPECT_TRUE(failed_at_least_once);
+}
+
+TEST(MaboroutuMemoryDataBuffer, CopyAssignmentFailureKeepsDestination) {
+   maboroutu::memory_data_buffer source;
+   std::vector<std::byte> payload(20000, std::byte{3});
+   ASSERT_TRUE(source.append(std::span<std::byte const>(payload)).has_value());
+   maboroutu::memory_data_buffer destination;
+   std::array<std::byte, 1> one{std::byte{9}};
+   ASSERT_TRUE(destination.append(one).has_value());
+
+   g_fail_countdown.store(1);
+   EXPECT_THROW(destination = source, std::bad_alloc);
+   g_fail_countdown.store(-1);
+
+   ASSERT_EQ(destination.size().value_or(0), 1u);
+   auto bytes = destination.read(maboroutu::region{.offset = 0, .size = 1});
+   ASSERT_TRUE(bytes.has_value());
+   EXPECT_EQ(bytes->value[0], std::byte{9});
+}
+#endif

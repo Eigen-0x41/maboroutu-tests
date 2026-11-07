@@ -218,3 +218,47 @@ TEST(MaboroutuSequentialView, ReadValueAndArrayThroughViewDecodeEndian) {
    EXPECT_EQ((*tail)[1], 2u);
    EXPECT_EQ(view.count(), 8u);
 }
+
+namespace {
+// 指定したエラーを、常に write() で返すモック。
+template <ds_code_type Code> class failing_data_source {
+ public:
+   template <class T> using result_type = maboroutu::data_source_result<T>;
+   [[nodiscard]] auto size() const -> result_type<std::size_t> { return 0; }
+   [[nodiscard]] auto read(maboroutu::region) -> result_type<maboroutu::byte_array> {
+      return std::unexpected(maboroutu::error<ds_code_type>(Code));
+   }
+   [[nodiscard]] auto read_into(maboroutu::region, std::span<std::byte>)
+       -> result_type<void> {
+      return std::unexpected(maboroutu::error<ds_code_type>(Code));
+   }
+   auto write(maboroutu::region, std::span<std::byte const>)
+       -> result_type<void> {
+      return std::unexpected(maboroutu::error<ds_code_type>(Code));
+   }
+};
+
+template <ds_code_type Code> auto write_error_code() {
+   failing_data_source<Code> src;
+   maboroutu::sequential_view view{src};
+   std::array<std::byte, 1> data{};
+   auto result = view.write(data);
+   return result.error().code();
+}
+
+// data_source のエラーは、sequential_source のエラーへ変換される。
+// 確保の失敗は、状態の異常（invalid_member_variable）ではなく、
+// 一般的な失敗（operation_failure）になる。
+TEST(MaboroutuSequentialView, AllocationFailureIsConvertedToOperationFailure) {
+   using seq_code_type = decltype(
+       std::declval<maboroutu::sequential_source_result<int>>().error().code());
+   EXPECT_EQ(write_error_code<ds_code_type::allocation_failure>(),
+             seq_code_type::operation_failure);
+   EXPECT_EQ(write_error_code<ds_code_type::operation_failure>(),
+             seq_code_type::operation_failure);
+   EXPECT_EQ(write_error_code<ds_code_type::out_of_range>(),
+             seq_code_type::out_of_range);
+   EXPECT_EQ(write_error_code<ds_code_type::invalid_operation>(),
+             seq_code_type::invalid_member_variable);
+}
+} // namespace
