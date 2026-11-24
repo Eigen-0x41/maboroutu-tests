@@ -16,19 +16,53 @@ import maboroutu.mutex_wrapper;
 namespace {
 
 using maboroutu::mutex_wrapper;
+using maboroutu::null_mutex;
 
 TEST(MaboroutuMutexWrapper, Types) {
    using W = mutex_wrapper<int>;
    static_assert(std::is_same_v<W::value_type, int>);
-   static_assert(std::is_same_v<W::mutex_type, std::mutex>);
-   static_assert(std::is_same_v<mutex_wrapper<int, std::shared_mutex>::mutex_type,
-                                std::shared_mutex>);
+   static_assert(std::is_same_v<W::mutex_type, maboroutu::mutex>);
+   static_assert(std::is_same_v<mutex_wrapper<int, maboroutu::shared_mutex>::mutex_type,
+                                maboroutu::shared_mutex>);
 }
 
 // 既定構築では保持値が値初期化される。
 TEST(MaboroutuMutexWrapper, DefaultConstructedValueIsZero) {
    mutex_wrapper<int> w;
    EXPECT_EQ(w.lock([](int const &v) { return v; }), 0);
+}
+
+// コンストラクタ引数で保持値を初期化できる。
+TEST(MaboroutuMutexWrapper, ConstructWithArguments) {
+   mutex_wrapper<int> a(7);
+   EXPECT_EQ(a.lock([](int const &v) { return v; }), 7);
+   struct pair_t {
+      pair_t(int a, double b) : a(a), b(b) {}
+      int a;
+      double b;
+   };
+   mutex_wrapper<pair_t> b(1, 2.5);
+   EXPECT_EQ(b.lock([](pair_t const &v) { return v.a; }), 1);
+   EXPECT_EQ(b.lock([](pair_t const &v) { return v.b; }), 2.5);
+}
+
+// 非const左辺値からのコピーがコンストラクタテンプレートに奪われない。
+TEST(MaboroutuMutexWrapper, MoveConstructible) {
+   mutex_wrapper<int, null_mutex> a(4);
+   mutex_wrapper<int, null_mutex> b(std::move(a));
+   EXPECT_EQ(b.lock([](int const &v) { return v; }), 4);
+}
+
+// 同一型の引数も保持値のコンストラクタへ転送される。
+TEST(MaboroutuMutexWrapper, ConstructWithSameTypeArguments) {
+   mutex_wrapper<std::vector<int>> w(3, 1);
+   EXPECT_EQ(w.lock([](auto const &v) { return v.size(); }), 3u);
+}
+
+TEST(MaboroutuMutexWrapper, CopyFromNonConstLvalue) {
+   mutex_wrapper<int, null_mutex> a(4);
+   mutex_wrapper<int, null_mutex> b(a);
+   EXPECT_EQ(b.lock([](int const &v) { return v; }), 4);
 }
 
 TEST(MaboroutuMutexWrapper, WriteAndRead) {
@@ -53,8 +87,8 @@ TEST(MaboroutuMutexWrapper, NoexceptPropagation) {
    static_assert(!noexcept(w.lock(g)));
 }
 
-TEST(MaboroutuMutexWrapper, VoidMutex) {
-   mutex_wrapper<int, void> w;
+TEST(MaboroutuMutexWrapper, NullMutex) {
+   mutex_wrapper<int, null_mutex> w;
    w.lock([](int &v) { v = 3; });
    EXPECT_EQ(w.lock([](int const &v) { return v; }), 3);
 }
@@ -78,15 +112,15 @@ template <class M> void counts_exactly() {
 }
 
 TEST(MaboroutuMutexWrapper, ConcurrentWriteMutex) {
-   counts_exactly<std::mutex>();
+   counts_exactly<maboroutu::mutex>();
 }
 TEST(MaboroutuMutexWrapper, ConcurrentWriteSharedMutex) {
-   counts_exactly<std::shared_mutex>();
+   counts_exactly<maboroutu::shared_mutex>();
 }
 
 // 書き込み用ロック（非const引数）は排他になる。
 TEST(MaboroutuMutexWrapper, WriteIsExclusive) {
-   mutex_wrapper<int, std::shared_mutex> w;
+   mutex_wrapper<int, maboroutu::shared_mutex> w;
    std::atomic<int> inside{0};
    std::atomic<int> max_inside{0};
    std::vector<std::thread> ts;
@@ -113,7 +147,7 @@ TEST(MaboroutuMutexWrapper, WriteIsExclusive) {
 // 読み取り用ロック（const引数）はshared_mutexで同時に保持できる。
 // 2スレッドが同時にロック内へ入れなければ（排他ロックなら）待ちが解消せず失敗する。
 TEST(MaboroutuMutexWrapper, ReadIsShared) {
-   mutex_wrapper<int, std::shared_mutex> w;
+   mutex_wrapper<int, maboroutu::shared_mutex> w;
    std::mutex m;
    std::condition_variable cv;
    int inside = 0;
