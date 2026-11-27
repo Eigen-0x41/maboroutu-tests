@@ -8,8 +8,10 @@
 // という利点を持たせている。
 #include <bit>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 #include <gtest/gtest.h>
 
@@ -138,6 +140,132 @@ TEST(MaboroutuCore, EndianInPlaceTagIsInPlaceTagOfStdEndian) {
        std::is_same_v<little_tag,
                       maboroutu::in_place_tag<std::endian, std::endian::little>>);
    static_assert(little_tag::value == std::endian::little);
+}
+
+// ---------------------------------------------------------------------
+// invoke_within_read_lock_or_directly / invoke_within_write_lock_or_directly
+// ---------------------------------------------------------------------
+// read_lock/write_lock を持つ型（ロックの内側で func が呼ばれることを検証する）。
+struct lockable_value {
+   using value_type = int;
+   int value = 0;
+   int read_count = 0;
+   int write_count = 0;
+   bool locked = false;
+
+   template <class F>
+   constexpr auto read_lock(F &&func) noexcept(
+       std::is_nothrow_invocable_v<F &&, int const &>)
+       -> std::invoke_result_t<F &&, int const &> {
+      ++read_count;
+      locked = true;
+      struct release {
+         bool &flag;
+         ~release() { flag = false; }
+      } guard{locked};
+      return std::invoke(std::forward<F>(func), std::as_const(value));
+   }
+   template <class F>
+   constexpr auto write_lock(F &&func) noexcept(
+       std::is_nothrow_invocable_v<F &&, int &>)
+       -> std::invoke_result_t<F &&, int &> {
+      ++write_count;
+      locked = true;
+      struct release {
+         bool &flag;
+         ~release() { flag = false; }
+      } guard{locked};
+      return std::invoke(std::forward<F>(func), value);
+   }
+};
+
+struct plain_value {
+   int value = 0;
+};
+
+TEST(MaboroutuCore, InvokeWithinReadLockCallsInsideLock) {
+   lockable_value v;
+   bool was_locked = false;
+   maboroutu::invoke_within_read_lock_or_directly(v, [&](int const &) {
+      was_locked = v.locked;
+   });
+   EXPECT_TRUE(was_locked);
+   EXPECT_FALSE(v.locked);
+   EXPECT_EQ(v.read_count, 1);
+   EXPECT_EQ(v.write_count, 0);
+}
+
+TEST(MaboroutuCore, InvokeWithinWriteLockCallsInsideLock) {
+   lockable_value v;
+   bool was_locked = false;
+   maboroutu::invoke_within_write_lock_or_directly(v, [&](int &x) {
+      was_locked = v.locked;
+      x = 3;
+   });
+   EXPECT_TRUE(was_locked);
+   EXPECT_FALSE(v.locked);
+   EXPECT_EQ(v.write_count, 1);
+   EXPECT_EQ(v.read_count, 0);
+   EXPECT_EQ(v.value, 3);
+}
+
+TEST(MaboroutuCore, InvokeDirectlyWhenNotLockable) {
+   plain_value p;
+   maboroutu::invoke_within_write_lock_or_directly(
+       p, [](plain_value &x) { x.value = 4; });
+   EXPECT_EQ(p.value, 4);
+   EXPECT_EQ(maboroutu::invoke_within_read_lock_or_directly(
+                 p, [](plain_value const &x) { return x.value; }),
+             4);
+}
+
+// std::invoke の規則に従い、メンバポインタも渡せる。
+TEST(MaboroutuCore, InvokeDirectlyAcceptsMemberPointer) {
+   plain_value p{6};
+   EXPECT_EQ(maboroutu::invoke_within_read_lock_or_directly(
+                 p, &plain_value::value),
+             6);
+   lockable_value l;
+   l.value = 8;
+   EXPECT_EQ(maboroutu::invoke_within_read_lock_or_directly(
+                 l, [](int const &v) { return v; }),
+             8);
+}
+
+// const の対象には書き込み版を使えない。
+template <class T, class F>
+concept can_write_or_directly = requires(T &v, F &&f) {
+   maboroutu::invoke_within_write_lock_or_directly(v, std::forward<F>(f));
+};
+static_assert(can_write_or_directly<plain_value, void (*)(plain_value &)>);
+static_assert(!can_write_or_directly<plain_value const, void (*)(plain_value &)>);
+static_assert(can_write_or_directly<lockable_value, void (*)(int &)>);
+
+TEST(MaboroutuCore, InvokeWithinLockReturnsValueAndReference) {
+   lockable_value l;
+   plain_value p;
+   int &r = maboroutu::invoke_within_write_lock_or_directly(
+       l, [](int &x) -> int & { return x; });
+   EXPECT_EQ(&r, &l.value);
+   int &q = maboroutu::invoke_within_write_lock_or_directly(
+       p, [](plain_value &x) -> int & { return x.value; });
+   EXPECT_EQ(&q, &p.value);
+   EXPECT_EQ(maboroutu::invoke_within_read_lock_or_directly(
+                 l, [](int const &x) { return x + 1; }),
+             1);
+}
+
+TEST(MaboroutuCore, InvokeWithinLockNoexceptPropagation) {
+   lockable_value l;
+   plain_value p;
+   auto nr = [](int const &) noexcept {};
+   auto mr = [](int const &) {};
+   auto nw = [](plain_value &) noexcept {};
+   auto mw = [](plain_value &) {};
+   static_assert(noexcept(maboroutu::invoke_within_read_lock_or_directly(l, nr)));
+   static_assert(!noexcept(maboroutu::invoke_within_read_lock_or_directly(l, mr)));
+   static_assert(noexcept(maboroutu::invoke_within_write_lock_or_directly(p, nw)));
+   static_assert(!noexcept(maboroutu::invoke_within_write_lock_or_directly(p, mw)));
 }
 
 } // namespace
